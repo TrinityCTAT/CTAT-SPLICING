@@ -5,21 +5,36 @@ import pandas as pd
 import pyranges as pr
 import gzip as gz
 import logging
+import argparse
+
+
+if sys.version_info[0] != 3:
+    print("This script requires Python 3")
+    exit(1)
 
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def main():
-    usage = "\n\n\tusage: {} {} {}\n\n".format(sys.argv[0], "targets.list", "tab_gz_files_list_file")
-    
-    if len(sys.argv) < 3:
-        sys.stderr.write(usage)
-        sys.exit(1)
 
-    targets_list_file = sys.argv[1]
-    tab_gz_files_list_file = sys.argv[2]
+
+
+
+def main():
+
+
+    parser = argparse.ArgumentParser(description="capture gene to intron usage stats", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    parser.add_argument("--targets_list_file", dest="targets_list_file", type=str, required=True, help="targets list file")
+    parser.add_argument("--tab_gz_files_list_file", dest="tab_gz_files_list_file", type=str, required=True, help="file containing lists of SJ.tab.gz files")
+    parser.add_argument("--output_file_name", dest="output_file_name", type=str, required=True, help="name of output file")
+
+    args = parser.parse_args()
+    
+    targets_list_file = args.targets_list_file
+    tab_gz_files_list_file = args.tab_gz_files_list_file
+    output_file_name = args.output_file_name
     
     logger.info("-reading targets list: {}".format(targets_list_file))
     df = pd.read_csv(targets_list_file, sep="\t")
@@ -43,10 +58,10 @@ def main():
             if df_concat is None:
                 df_concat = df
             else:
-                df_concat.append(df)
+                df_concat = df_concat.append(df)
 
-    logger.info("-* writing final output *")
-    df_concat.to_csv("introns_mapped_to_genes.tsv", sep="\t")
+    logger.info("-* writing final output to {} *".format(output_file_name))
+    df_concat.to_csv(output_file_name, sep="\t")
     
     sys.exit(0)
     
