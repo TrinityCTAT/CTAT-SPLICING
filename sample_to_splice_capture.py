@@ -17,10 +17,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-
-
-
-
 def main():
 
 
@@ -67,11 +63,9 @@ def main():
     
 
 def map_introns(df_pr : pr.PyRanges, tab_gz_filename : str) -> pd.DataFrame:
-
-
     
-    introns_df = pd.read_csv("/seq/RNASEQ/FUSION_INSPECTOR_DEVEL/GTEx_Firecloud/GTEx_FC_Oct2018_ChimJs/GTEX-O5YT-1026-SM-3MJGF.SJ.out.tab.gz", sep="\t", header=None)
-
+    introns_df = pd.read_csv(tab_gz_filename, sep="\t", header=None)
+    
 
     """  from the STAR manual
     4.4 Splice junctions.
