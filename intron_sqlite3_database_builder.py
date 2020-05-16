@@ -32,26 +32,6 @@ def main():
         raise RuntimeError("Error, database {} already exists. Remove it or use a different database name for creation step.".format(sqlite3_dbname))
 
 
-    conn = sqlite3.connect(sqlite3_dbname)
-
-    c = conn.cursor()
-
-    ## create the database table
-    c.execute("CREATE TABLE introns \
-                 (class TEXT, \
-                  sample TEXT, \
-                  genes TEXT, \
-                  Chromosome TEXT, \
-                  Start INT, \
-                  End INT, \
-                  strandval INT, \
-                  intron_motif INT, \
-                  annot_status INT, \
-                  unique_mappings INT, \
-                  multi_mappings INT, \
-                  max_spliced_align_overhang INT) ")
-    conn.commit()
-
 
     ## populate data
     for input_file in input_files:
@@ -80,6 +60,51 @@ def main():
 
     sys.exit(0)
 
+
+
+
+def build_tables():
+    
+    conn = sqlite3.connect(sqlite3_dbname)
+
+    c = conn.cursor()
+
+    ## samples table:
+    c.execute("CREATE TABLE samples \
+                 (sample_name TEXT,
+                  db_class TEXT,
+                  sample_type TEXT,
+                  total_uniq_count INT,
+                  total_multi_count INT,
+                  total_count INT)")
+
+    
+    ## intron_feature table
+    c.execute("CREATE TABLE intron_feature \
+                 (intron TEXT, \
+                  chromosome TEXT,
+                  start INT,
+                  end INT,
+                  strand INT,
+                  intron_motif INT,
+                  annot_status INT,
+                  genes TEXT)")
+
+    ## intron_occurrence table
+    c.execute("CREATE TABLE intron_occurrence \
+                  (intron TEXT,
+                   sample TEXT,
+                   unique_mappings INT, \
+                   multi_mappings INT, \
+                   all_mappings INT,
+                   max_spliced_align_overhang INT, \
+                   norm_unique_mappings REAL,
+                   norm_multi_mappings REAL,
+                   norm_all_mappings REAL) ")
+    
+    conn.commit()
+
+    
 
 
 if __name__ == '__main__':
