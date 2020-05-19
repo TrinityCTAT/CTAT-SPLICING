@@ -165,7 +165,8 @@ def examine_intron_feature_for_enrichment(intron_feature : str,
         norm_all_mappings = int(intron_all_mappings) / int(sample_total_count) * 1e6
         
         print("\t".join(["INTRON_NORM_VALS", intron_token, sample_name, "{:.4f}".format(norm_unique_mappings),
-                         "{:.4f}".format(norm_multi_mapings), "{:.4f}".format(norm_all_mappings)]))
+                         "{:.4f}".format(norm_multi_mapings), "{:.4f}".format(norm_all_mappings)]),
+              file=ofh)
         
     
     ## report on findings.
@@ -179,7 +180,7 @@ def examine_intron_feature_for_enrichment(intron_feature : str,
             frac_cat = num_cat / num_sample_counts
             output += [str(num_cat), "{:.4f}".format(frac_cat)]
             
-        print("\t".join(output))
+        print("\t".join(output), file=ofh)
     
     
     
