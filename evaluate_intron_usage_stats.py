@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
 import sys, os, re
+import typing
 import sqlite3
 import logging
 import collections
 from collections import defaultdict
 import argparse
+import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -61,14 +63,18 @@ def main():
 
     parser.add_argument("--sqlite3_db", dest="sqlite3_db", type=str, required=True, help="sqlite3_db name")
     parser.add_argument("--intron_features_file", dest="intron_features_file", type=str, required=True, help="file containing list of intron features")
+    parser.add_argument("--output_file", dest="output_file", type=str, required=True, help="output filename")
 
     args = parser.parse_args()
     sqlite3_dbname = args.sqlite3_db
     intron_features_file = args.intron_features_file
+    output_filename = args.output_file
 
     conn = sqlite3.connect(sqlite3_dbname)
     c = conn.cursor()
 
+
+    ofh = open(output_filename, 'wt')
 
     ## get counts of samples according to tissue type
     query = "select db_class, sample_type, count(*) from samples group by db_class, sample_type"
@@ -87,8 +93,14 @@ def main():
         for intron_feature in fh:
             intron_feature = intron_feature.rstrip()
             logger.info(intron_feature)
-            examine_intron_feature_for_enrichment(intron_feature, c, sample_type_counts)
+            start_time = time.time()
+            examine_intron_feature_for_enrichment(intron_feature, c, sample_type_counts, ofh)
+            end_time = time.time()
+            seconds = int(end_time - start_time)
+            logger.info("-took {} seconds".format(seconds))
+
     
+    ofh.close()
 
     sys.exit(0)
 
@@ -96,7 +108,8 @@ def main():
 
 def examine_intron_feature_for_enrichment(intron_feature : str,
                                           c : sqlite3.Cursor,
-                                          sample_type_counts : collections.defaultdict):
+                                          sample_type_counts : collections.defaultdict,
+                                          ofh : typing.TextIO):
     
     query = str("select s.sample_name, s.db_class, s.sample_type, s.total_uniq_count, s.total_multi_count, s.total_count, "
                 + " io.intron, io.unique_mappings, io.multi_mappings, io.all_mappings "
@@ -106,7 +119,7 @@ def examine_intron_feature_for_enrichment(intron_feature : str,
                 + "       and not (db_class = \"TCGA\" and TN = \"N\") ")  # skip the tumor normals for now... analyze separately.
                 
 
-    logger.info(query)
+    #logger.info(query)
 
     #sys.exit(1)
 
