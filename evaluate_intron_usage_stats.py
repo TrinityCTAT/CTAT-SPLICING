@@ -29,6 +29,18 @@ def main():
     conn = sqlite3.connect(sqlite3_dbname)
     c = conn.cursor()
 
+    ## get counts of samples according to tissue type
+    query = "select db_class, sample_type, count(*) from samples group by db_class, sample_type"
+    c.execute(query)
+    rows = c.fetchall()
+    sample_type_counts = defaultdict(int)
+    for row in rows:
+        (db_class, sample_type, count) = row
+        sample_type = "^".join([db_class, sample_type])
+        sample_type_counts[sample_type] += count
+        base_sample_type = "^".join([db_class, "ALL"])
+        sample_type_counts[base_sample_type] += count
+
 
     ofh = open(output_filename, 'wt')
 
