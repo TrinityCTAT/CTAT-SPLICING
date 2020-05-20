@@ -2,6 +2,8 @@
 
 import sys, os, re
 
+INTRON = None  ## //FIXME: put intron into the file being read for each line.
+
 
 def main():
 
@@ -23,6 +25,8 @@ def main():
 
 def generate_sql(vals : list) -> None:
 
+    global INTRON
+    
     if vals[0] == "INTRON_SAMPLE_TYPE_COUNTER":
         (table_type, db_class_tissue_type,
          uniq_count, uniq_pct,
@@ -30,12 +34,15 @@ def generate_sql(vals : list) -> None:
          all_count, all_pct) = vals
 
         db_class, tissue_type = db_class_tissue_type.split("^")
+
+        if INTRON is None:
+            raise RuntimeError("Error, intron not identified!")
         
-        print(str("insert intron_sample_type_counts (db_class, sample_type, " +
-                  " uniq_count, uniq_pct, all_count, all_pct) " +
-                  " values (\"{}\", \"{}\", {}, {}, {}, {}, {} )".format(
-                      db_class, tissue_type, uniq_count, uniq_pct,
-                      multi_count, multi_pct, all_count, all_pct) ) )
+        print(str("insert into intron_sample_type_counts (intron, db_class, sample_type, " +
+                  " uniq_count, uniq_pct, multi_count, multi_pct, all_count, all_pct) " +
+                  " values (\"{}\", \"{}\", \"{}\", ".format( INTRON, db_class, tissue_type) +
+                  " {}, {}, {}, {}, {}, {} );".format(uniq_count, uniq_pct, multi_count, multi_pct, all_count, all_pct) ) )
+
 
     elif vals[0] == "INTRON_NORM_VALS":
         # intron_occurrence  (intron TEXT,  sample TEXT,  unique_mappings INT, multi_mappings INT,all_mappings INT,max_spliced_align_overhang INT,norm_unique_mappings REAL,norm_multi_mappings REAL, norm_all_mappings REAL);
@@ -46,9 +53,11 @@ def generate_sql(vals : list) -> None:
                   "     norm_multi_mappings = {}, ".format(norm_multi_mappings) +
                   "     norm_all_mappings = {} ".format(norm_all_mappings) +
                   " where intron = \"{}\" ".format(intron) +
-                  "       and sample_type = \"{}\" ".format(sample) ) )
+                  "       and sample_type = \"{}\"; ".format(sample) ) )
 
-
+        
+        INTRON = intron
+        
     return
 
 

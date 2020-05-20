@@ -20,7 +20,6 @@ def main():
     parser.add_argument("--sqlite3_db", dest="sqlite3_db", type=str, required=True, help="sqlite3_db name")
     parser.add_argument("--intron_features_file", dest="intron_features_file", type=str, required=True, help="file containing list of intron features")
     parser.add_argument("--output_file", dest="output_file", type=str, required=True, help="output filename")
-    parser.add_argument("--pseudocount", dest="pseudocount", type=float, required=False, default=1.0, help="pseudocount used in ratio computations: (A + pseudo)/(B + pseudo)") 
     
     args = parser.parse_args()
     sqlite3_dbname = args.sqlite3_db
