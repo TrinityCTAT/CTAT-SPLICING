@@ -12,54 +12,10 @@ import time
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-"""
-## -----------------------
-## intron_occurrence table
-
-sqlite> select * from intron_occurrence limit 1;
-                    intron = chr1:15039-15795
-                    sample = GTEX-O5YT-1026-SM-3MJGF
-           unique_mappings = 3
-            multi_mappings = 64
-              all_mappings = 67
-max_spliced_align_overhang = 36
-      norm_unique_mappings = -1.0
-       norm_multi_mappings = -1.0
-         norm_all_mappings = -1.0
-
-
-## --------------------
-## intron_feature table
-
-sqlite> select * from intron_feature limit 1;
-      intron = chr1:15039-15795
-  chromosome = chr1
-       start = 15039
-         end = 15795
-      strand = 2
-intron_motif = 2
-annot_status = 1
-       genes = WASH7P^ENSG00000227232.5
-
-
-
-## --------------
-### samples table
-
-sqlite> select * from samples limit 1;
-      sample_name = GTEX-O5YT-1026-SM-3MJGF
-         db_class = GTEx
-      sample_type = NA
- total_uniq_count = 21408796
-total_multi_count = 4092132
-      total_count = 25500928
-
-"""
-
 
 def main():
 
-    parser = argparse.ArgumentParser(description="examines intron feature for tumor type enrichment", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(description="examines intron feature usage stats and computes the normalized abundance", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument("--sqlite3_db", dest="sqlite3_db", type=str, required=True, help="sqlite3_db name")
     parser.add_argument("--intron_features_file", dest="intron_features_file", type=str, required=True, help="file containing list of intron features")
