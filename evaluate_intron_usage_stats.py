@@ -20,7 +20,8 @@ def main():
     parser.add_argument("--sqlite3_db", dest="sqlite3_db", type=str, required=True, help="sqlite3_db name")
     parser.add_argument("--intron_features_file", dest="intron_features_file", type=str, required=True, help="file containing list of intron features")
     parser.add_argument("--output_file", dest="output_file", type=str, required=True, help="output filename")
-
+    parser.add_argument("--pseudocount", dest="pseudocount", type=float, required=False, default=1.0, help="pseudocount used in ratio computations: (A + pseudo)/(B + pseudo)") 
+    
     args = parser.parse_args()
     sqlite3_dbname = args.sqlite3_db
     intron_features_file = args.intron_features_file
@@ -32,25 +33,12 @@ def main():
 
     ofh = open(output_filename, 'wt')
 
-    ## get counts of samples according to tissue type
-    query = "select db_class, sample_type, count(*) from samples group by db_class, sample_type"
-    c.execute(query)
-    rows = c.fetchall()
-    sample_type_counts = defaultdict(int)
-    for row in rows:
-        (db_class, sample_type, count) = row
-        sample_type = "^".join([db_class, sample_type])
-        sample_type_counts[sample_type] += count
-        base_sample_type = "^".join([db_class, "ALL"])
-        sample_type_counts[base_sample_type] += count
-        
-
     with open(intron_features_file) as fh:
         for intron_feature in fh:
             intron_feature = intron_feature.rstrip()
             logger.info(intron_feature)
             start_time = time.time()
-            examine_intron_feature_for_enrichment(intron_feature, c, sample_type_counts, ofh)
+            examine_intron_feature_usage_stats(intron_feature, c, sample_type_counts, ofh)
             end_time = time.time()
             seconds = int(end_time - start_time)
             logger.info("-took {} seconds".format(seconds))
@@ -62,10 +50,10 @@ def main():
 
 
 
-def examine_intron_feature_for_enrichment(intron_feature : str,
-                                          c : sqlite3.Cursor,
-                                          sample_type_counts : collections.defaultdict,
-                                          ofh : typing.TextIO):
+def examine_intron_feature_usage_stats(intron_feature : str,
+                                       c : sqlite3.Cursor,
+                                       sample_type_counts : collections.defaultdict,
+                                       ofh : typing.TextIO):
     
     query = str("select s.sample_name, s.db_class, s.sample_type, s.total_uniq_count, s.total_multi_count, s.total_count, "
                 + " io.intron, io.unique_mappings, io.multi_mappings, io.all_mappings "
