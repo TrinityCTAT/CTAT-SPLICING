@@ -53,7 +53,7 @@ def generate_sql(vals : list) -> None:
                   "     norm_multi_mappings = {}, ".format(norm_multi_mappings) +
                   "     norm_all_mappings = {} ".format(norm_all_mappings) +
                   " where intron = \"{}\" ".format(intron) +
-                  "       and sample_type = \"{}\"; ".format(sample) ) )
+                  "       and sample = \"{}\"; ".format(sample) ) )
 
         
         INTRON = intron
