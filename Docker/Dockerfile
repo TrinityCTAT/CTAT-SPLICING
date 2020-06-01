@@ -38,3 +38,8 @@ RUN SAMTOOLS_URL="https://github.com/samtools/samtools/releases/download/${SAMTO
                cd ../ && ./configure --without-curses && make && make install
                
 
+
+COPY intron_counter.py $BIN/
+
+RUN pip install pysam
+
