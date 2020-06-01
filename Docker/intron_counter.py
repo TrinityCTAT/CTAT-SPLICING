@@ -28,8 +28,8 @@ def main():
         chr_name = samfile.get_reference_name(read.reference_id)
 
         for i in range(num_blocks - 1):
-            intron_lend = blocks[i][1] + 1 + 1
-            intron_rend = blocks[i + 1][0] + 1 - 1
+            intron_lend = blocks[i][1] + 1
+            intron_rend = blocks[i + 1][0]
 
             intron_name = "{}:{}-{}".format(chr_name, intron_lend, intron_rend)
 
