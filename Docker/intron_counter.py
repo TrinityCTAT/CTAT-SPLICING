@@ -5,6 +5,9 @@ import pysam
 from collections import defaultdict
 
 
+MIN_INTRON_LEN = 20
+
+
 def main():
 
     usage = "usage: {} input.bam sample_name\n\n".format(sys.argv[0])
@@ -31,9 +34,9 @@ def main():
             intron_lend = blocks[i][1] + 1
             intron_rend = blocks[i + 1][0]
 
-            intron_name = "{}:{}-{}".format(chr_name, intron_lend, intron_rend)
-
-            intron_counter[intron_name] += 1
+            if intron_rend - intron_lend >= MIN_INTRON_LEN:
+                intron_name = "{}:{}-{}".format(chr_name, intron_lend, intron_rend)
+                intron_counter[intron_name] += 1
 
     for intron, count in intron_counter.items():
         print("\t".join([sample_name, intron, str(count)]))
