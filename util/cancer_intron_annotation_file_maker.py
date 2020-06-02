@@ -34,7 +34,7 @@ def main():
             genes = vals[1]
             intron_feature = vals[2]
             
-            intron_feature_name = ""
+            intron_feature_name = "NA"
             if intron_feature in intron_feature_names:
                 intron_feature_name = intron_feature_names[intron_feature]
                 del intron_feature_names[intron_feature]
@@ -48,7 +48,7 @@ def main():
     
     # capture any known/annotated introns not defined as cancer introns based on empirical data
     for intron in intron_feature_names:
-        write_intron_feature_annotation(c, intron, intron_feature_names[intron])
+        write_intron_feature_annotation(c, intron, intron_feature_names.get(intron, "NA"))
 
     
     sys.exit(0)
@@ -71,6 +71,11 @@ def parse_intron_feature_names(intron_feature_names_file : str) -> dict:
 
 def write_intron_feature_annotation(c : sqlite3.Cursor, intron_feature : str, intron_feature_name : str) -> None:
     
+
+    query = "select genes from intron_feature where intron = ?"
+    c.execute(query, (intron_feature,))
+    genes, = c.fetchone()
+
 
     query = str("select sample_type, all_count, all_pct " +
                 " from intron_sample_type_counts " +
@@ -99,8 +104,8 @@ def write_intron_feature_annotation(c : sqlite3.Cursor, intron_feature : str, in
         GTEx_vals = ["NA"]
 
 
-    print("\t".join([intron_feature, ",".join(TCGA_vals), ",".join(GTEx_vals), intron_feature_name]))
-
+    print("\t".join([intron_feature, genes, ",".join(TCGA_vals), ",".join(GTEx_vals), intron_feature_name]))
+    
     return
         
     
