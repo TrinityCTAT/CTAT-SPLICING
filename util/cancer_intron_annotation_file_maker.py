@@ -20,7 +20,7 @@ def main():
     cancer_introns_file = args.cancer_introns
     intron_feature_names_file = args.intron_feature_names
 
-    intron_feature_names = parse_intron_feature_names(intron_feature_names_file)
+    intron_feature_names_dict, gene_names_dict = parse_intron_feature_names(intron_feature_names_file)
 
 
     conn = sqlite3.connect(sqlite3_dbname)
@@ -35,11 +35,14 @@ def main():
             intron_feature = vals[2]
             
             intron_feature_name = "NA"
-            if intron_feature in intron_feature_names:
-                intron_feature_name = intron_feature_names[intron_feature]
-                del intron_feature_names[intron_feature]
+            if intron_feature in intron_feature_names_dict:
+                intron_feature_name = intron_feature_names_dict[intron_feature]
+                del intron_feature_names_dict[intron_feature]
 
-            write_intron_feature_annotation(c, intron_feature, intron_feature_name)
+
+            genes = get_genes_for_intron(c, intron_feature)
+            
+            write_intron_feature_annotation(c, intron_feature, genes, intron_feature_name)
             counter += 1
             if counter % 100 == 0:
                 sys.stderr.write("\r[{}]  ".format(counter))
@@ -47,35 +50,49 @@ def main():
     sys.stderr.write("\nDone parsing.\n")
     
     # capture any known/annotated introns not defined as cancer introns based on empirical data
-    for intron in intron_feature_names:
-        write_intron_feature_annotation(c, intron, intron_feature_names.get(intron, "NA"))
+    for intron in intron_feature_names_dict:
+        genes = get_genes_for_intron(c, intron)
+        if genes is None:
+            genes = gene_names_dict[intron]
+            
+        write_intron_feature_annotation(c, intron, genes, intron_feature_names_dict.get(intron, "NA"))
 
     
     sys.exit(0)
 
 
 
-def parse_intron_feature_names(intron_feature_names_file : str) -> dict:
+
+def get_genes_for_intron(c : sqlite3.Cursor, intron_feature : str) -> str:
+
+    query = "select genes from intron_feature where intron = ?"
+    c.execute(query, (intron_feature,))
+    genes = c.fetchone()
+    if genes is not None:
+        genes = genes[0]
+
+    return genes
+
+
+
+def parse_intron_feature_names(intron_feature_names_file : str) -> (dict, dict):
 
     intron_names_dict = dict()
+    gene_names_dict = dict()
 
     with open(intron_feature_names_file) as fh:
         for line in fh:
             line = line.rstrip()
-            (intron_feature, intron_name) = line.split("\t")
+            (intron_feature, gene, intron_name) = line.split("\t")
             intron_names_dict[intron_feature] = intron_name
+            gene_names_dict[intron_feature] = gene
 
-    return intron_names_dict
+    return intron_names_dict, gene_names_dict
 
 
 
-def write_intron_feature_annotation(c : sqlite3.Cursor, intron_feature : str, intron_feature_name : str) -> None:
+def write_intron_feature_annotation(c : sqlite3.Cursor, intron_feature : str, genes : str, intron_feature_name : str) -> None:
     
-
-    query = "select genes from intron_feature where intron = ?"
-    c.execute(query, (intron_feature,))
-    genes, = c.fetchone()
-
 
     query = str("select sample_type, all_count, all_pct " +
                 " from intron_sample_type_counts " +
