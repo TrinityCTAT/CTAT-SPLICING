@@ -17,6 +17,8 @@ if sys.version_info[0] != 3:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+utildir=os.path.dirname(os.path.realpath(__file__))
+
 
 def main():
 
