@@ -17,8 +17,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def main():
+utildir=os.path.dirname(os.path.realpath(__file__))
 
+
+def main():
 
     parser = argparse.ArgumentParser(description="capture gene to intron usage stats", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
