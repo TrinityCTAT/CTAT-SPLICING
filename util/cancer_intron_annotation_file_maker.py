@@ -26,6 +26,8 @@ def main():
     conn = sqlite3.connect(sqlite3_dbname)
     c = conn.cursor()
 
+    seen = set()
+
     counter = 0
     with open(cancer_introns_file) as fh:
         header = next(fh)
@@ -33,6 +35,11 @@ def main():
             vals = line.split("\t")
             genes = vals[1]
             intron_feature = vals[2]
+
+            if intron_feature in seen:
+                continue
+
+            seen.add(intron_feature)
             
             intron_feature_name = "NA"
             if intron_feature in intron_feature_names_dict:
