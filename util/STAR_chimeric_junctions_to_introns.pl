@@ -82,6 +82,7 @@ sub map_chimeric_reads_to_introns {
 
     
     my %seen; # avoid duplicates
+    my %read_alignment_counter;
 
     my $start_time = time();
     my $counter = 0;
@@ -132,6 +133,9 @@ sub map_chimeric_reads_to_introns {
                 
         my $read_name = $x[9];
         
+        $read_alignment_counter{$read_name}++;
+
+
         my ($chrA, $coordA, $orientA) = ($x[0], $x[1], $x[2]);
         $coordA = ($orientA eq '+') ? --$coordA : ++$coordA;
         
@@ -148,8 +152,6 @@ sub map_chimeric_reads_to_introns {
 
         my ($rst_B, $cigar_B) = ($x[12], $x[13]);
 
-
-        
         my $uniq_aln_token = join("^", $chrA, $rst_A, $cigar_A, $rst_B, $cigar_B);
         if ($seen{$uniq_aln_token}) { 
             # duplicate
@@ -182,16 +184,30 @@ sub map_chimeric_reads_to_introns {
 
             if ($intron_rend - $intron_lend > $MIN_INTRON_LEN) {
                 
-                $intron_counter{"$chrA:$intron_lend-$intron_rend"}++;
+                $intron_counter{"$chrA:$intron_lend-$intron_rend"}->{$read_name} = 1;
             }
         }
         
     }
     
+    print "#intron_candidate\tuniqmap\tmultimap\n";
     foreach my $intron (keys %intron_counter) {
-        my $count = $intron_counter{$intron};
+        my $read_names_href = $intron_counter{$intron};
         
-        print join("\t", $intron, $count) . "\n";
+        my $unique_count = 0;
+        my $multi_count = 0;
+        foreach my $read_name (keys %$read_names_href) {
+            if ($read_alignment_counter{$read_name} == 1) {
+                $unique_count += 1;
+            }
+            elsif ($read_alignment_counter{$read_name} > 1) {
+                $multi_count += 1;
+            }
+            else {
+                die "Error, not finding a read mapping count for read: $read_name";
+            }
+        }
+        print join("\t", $intron, $unique_count, $multi_count) . "\n";
     }
     
     
