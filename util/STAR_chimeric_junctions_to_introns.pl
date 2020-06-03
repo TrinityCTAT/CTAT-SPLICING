@@ -80,6 +80,9 @@ sub map_chimeric_reads_to_introns {
 
     my %intron_counter;
 
+    
+    my %seen; # avoid duplicates
+
     my $start_time = time();
     my $counter = 0;
     open (my $fh, $junctions_file) or die "Error, cannot open file $junctions_file";
@@ -145,6 +148,15 @@ sub map_chimeric_reads_to_introns {
 
         my ($rst_B, $cigar_B) = ($x[12], $x[13]);
 
+
+        
+        my $uniq_aln_token = join("^", $chrA, $rst_A, $cigar_A, $rst_B, $cigar_B);
+        if ($seen{$uniq_aln_token}) { 
+            # duplicate
+            next;
+        }
+        $seen{$uniq_aln_token} = 1;
+        
         my ($genome_coords_A_aref, $read_coords_A_aref) = &get_genome_coords_via_cigar($rst_A, $cigar_A);
         my ($genome_coords_B_aref, $read_coords_B_aref) = &get_genome_coords_via_cigar($rst_B, $cigar_B);
         
