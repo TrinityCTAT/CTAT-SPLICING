@@ -7,7 +7,7 @@ import gzip as gz
 import logging
 import argparse
 from collections import defaultdict
-
+import subprocess
 
 if sys.version_info[0] != 3:
     print("This script requires Python 3")
@@ -22,20 +22,23 @@ utildir=os.path.dirname(os.path.realpath(__file__))
 
 def main():
 
-
     parser = argparse.ArgumentParser(description="capture gene to intron usage stats", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument("--ctat_genome_lib", dest="ctat_genome_lib", type=str, required=True, help="ctat genome lib build dir")
     parser.add_argument("--tab_gz_files_list_file", dest="tab_gz_files_list_file", type=str, required=True, help="file containing lists of SJ.tab.gz files")
     parser.add_argument("--output_file_name", dest="output_file_name", type=str, required=True, help="name of output file")
     parser.add_argument("--db_class", dest="db_class", type=str, required=True, help="database class: ie. GTEx or TCGA")
-    
+    parser.add_argument("--debug", "-d", dest="DEBUG", action='store_true', default=False)
+        
     args = parser.parse_args()
     
     ctat_genome_lib = args.ctat_genome_lib
     tab_gz_files_list_file = args.tab_gz_files_list_file
     output_file_name = args.output_file_name
     db_class = args.db_class
+
+    if args.DEBUG:
+        logger.setLevel(logging.DEBUG)
 
 
     ## get target list info.
@@ -54,12 +57,29 @@ def main():
     
     with open(tab_gz_files_list_file) as fh:
         counter = 0
-        for gz_filename in fh:
-            gz_filename = gz_filename.rstrip()
-            counter += 1
-            logger.info("-[{}] processing {}".format(counter, gz_filename))
+        for filename_pair in fh:
+            filename_pair = filename_pair.rstrip()
+            splice_tab_gz_file, chimeric_out_introns_file = filename_pair.split("\t")
             
-            map_introns(gz_filename, chr_intron_bounds, db_class, ofh)
+            counter += 1
+            logger.info("-[{}] processing {}".format(counter, splice_tab_gz_file))
+            
+            introns_dict = map_introns_from_splice_tab(splice_tab_gz_file, chr_intron_bounds)
+
+            logger.info("-[{}] processing {}".format(counter, chimeric_out_introns_file))
+            introns_dict = supplement_introns_from_chimeric_junctions_file(chimeric_out_introns_file, introns_dict, chr_intron_bounds)
+            
+            ## output record:
+            sample_name = os.path.basename(splice_tab_gz_file).replace(".SJ.out.tab.gz", "")
+            for intron in introns_dict.values():
+                ofh.write("\t".join([db_class, sample_name, intron.genes,
+                                     intron.chromosome, intron.lend, intron.rend,
+                                     intron.strand,
+                                     intron.intron_motif, intron.annotated_flag,
+                                     str(intron.uniq_mapped), str(intron.multi_mapped),
+                                     intron.max_splice_overhang]) + "\n")
+                
+            
 
 
     logger.info("Done.")
@@ -67,8 +87,31 @@ def main():
     sys.exit(0)
     
 
-def map_introns(tab_gz_filename : str, chr_intron_bounds : dict, db_class : str, ofh : io.IOBase):
 
+class Intron:
+
+    def __init__(self, chromosome, lend, rend, strand, intron_motif, annotated_flag,
+                 uniq_mapped, multi_mapped, max_splice_overhang, genes):
+
+        self.chromosome = chromosome
+        self.lend = lend
+        self.rend = rend
+        self.strand = strand
+        self.intron_motif = intron_motif
+        self.annotated_flag = annotated_flag
+        self.uniq_mapped = uniq_mapped
+        self.multi_mapped = multi_mapped
+        self.max_splice_overhang = max_splice_overhang
+        self.genes = genes
+
+    def __repr__(self):
+        return("^".join([self.chromosome, self.lend, self.rend, str(self.uniq_mapped), str(self.multi_mapped)]))
+
+        
+
+def map_introns_from_splice_tab(tab_gz_filename : str,
+                                chr_intron_bounds : dict) -> dict:
+        
     
     """  from the STAR manual
     4.4 Splice junctions.
@@ -101,6 +144,9 @@ def map_introns(tab_gz_filename : str, chr_intron_bounds : dict, db_class : str,
         "unique_mappings", "multi_mappings", "max_spliced_align_overhang" ]
     """
 
+
+    introns_dict = dict()
+        
     with gz.open(tab_gz_filename, 'rt') as fh:
         for line in fh:
             line = line.rstrip()
@@ -109,8 +155,17 @@ def map_introns(tab_gz_filename : str, chr_intron_bounds : dict, db_class : str,
             intron_lend = vals[1]
             intron_rend = vals[2]
 
-            intron_tok_A = "{}:{}".format(chr, intron_lend)
-            intron_tok_B = "{}:{}".format(chr, intron_rend)
+            strand = '+' if vals[3] == "1" else '-'
+
+            intron_motif = vals[4]
+            annotated_flag = vals[5]
+            uniq_mapped = vals[6]
+            multi_mapped = vals[7]
+            max_splice_overhang = vals[8]
+            
+            
+            intron_tok_A = "{}:{}:{}".format(chr, intron_lend, strand)
+            intron_tok_B = "{}:{}:{}".format(chr, intron_rend, strand)
             
             genesA = None
             genesB = None
@@ -128,17 +183,75 @@ def map_introns(tab_gz_filename : str, chr_intron_bounds : dict, db_class : str,
                 else:
                     genes_entry = ",".join(list(genesA)) + "--" + ",".join(list(genesB))
 
-                
-                ## output record:
-                sample_name = os.path.basename(tab_gz_filename).replace(".SJ.out.tab.gz", "")
-                
-                ofh.write("\t".join([db_class, sample_name, genes_entry, *vals]) + "\n")
-                
-                                    
+                    
+                intron_tok = "{}:{}-{}".format(chr, intron_lend, intron_rend)
+                intron_obj = Intron(chr, intron_lend, intron_rend, strand,
+                                    intron_motif, annotated_flag, int(uniq_mapped),
+                                    int(multi_mapped), max_splice_overhang, genes_entry)
+
+                introns_dict[intron_tok] = intron_obj
+
+
+    return introns_dict
 
 
 
-    return
+def supplement_introns_from_chimeric_junctions_file(chimeric_out_introns_file : str,
+                                                    introns_dict : dict,
+                                                    chr_intron_bounds : dict) -> dict:
+
+    with open(chimeric_out_introns_file) as fh:
+        for line in fh:
+            if line[0] == "#":
+                continue
+
+            line = line.rstrip()
+            if line == "":
+                continue
+            vals = line.split("\t")
+            if len(vals) != 3:
+                raise RuntimeError("Error, couldn't parse line in to three fields: {}".format(line))
+            intron, uniq_map, multi_map = vals
+            uniq_map = int(uniq_map)
+            multi_map = int(multi_map)
+            if intron in introns_dict:
+                intron_obj = introns_dict[intron]
+                intron_obj.uniq_mapped += uniq_map
+                intron_obj.multi_mapped += multi_map
+                logger.info("-supplementing existing intron: " + str(intron_obj) + " with uniq: {}, multi: {}".format(uniq_map, multi_map))
+            else:
+                # see if intron has known splice sites.
+                intron_obj = try_make_intron_obj(intron, chr_intron_bounds, uniq_map, multi_map)
+                if intron_obj is not None:
+                    introns_dict[intron] = intron_obj
+                    logger.info("-supplementing NEW intron: " + str(intron_obj))
+            
+    return introns_dict
+
+
+
+def try_make_intron_obj(intron : str, chr_intron_bounds : dict, uniq_map : int, multi_map : int) -> Intron:
+    chr, coords = intron.split(':')
+    lend, rend = coords.split('-')
+
+    for orient in ('+', '-'):
+        left_splice_token = ":".join([chr, lend, orient])
+        right_splice_token = ":".join([chr, rend, orient])
+
+        if (left_splice_token in chr_intron_bounds and
+            right_splice_token in chr_intron_bounds):
+
+            genes_left = chr_intron_bounds[left_splice_token]
+            genes_right = chr_intron_bounds[right_splice_token]
+            genes = genes_left.union(genes_right)
+            genes = ",".join(list(genes))
+            
+            intron_obj = Intron(chr, lend, rend, orient, "-1", "1", uniq_map, multi_map, "-1", genes)
+
+            return intron_obj
+
+    # no intron could be created
+    return None
 
 
 
@@ -156,6 +269,7 @@ def populate_intron_bounds(targets_list_file : str) -> dict:
             chr = vals[0]
             lend = int(vals[3])
             rend = int(vals[4])
+            orient = vals[6]
             info = vals[8]
 
             m = re.search("gene_id \"([^\"]+)\"", info)
@@ -164,9 +278,9 @@ def populate_intron_bounds(targets_list_file : str) -> dict:
             else:
                 raise RuntimeError("Error, no gene id extracted from line: {}".format(line))
 
-            lend_token = ":".join([chr, str(lend-1)])
-            rend_token = ":".join([chr, str(rend+1)])
-
+            lend_token = ":".join([chr, str(lend-1), orient])
+            rend_token = ":".join([chr, str(rend+1), orient])
+            
             chr_intron_bounds[lend_token].add(gene_id)
             chr_intron_bounds[rend_token].add(gene_id)
 
