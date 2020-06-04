@@ -48,11 +48,11 @@ def main():
             raise RuntimeError("Error, cannot locate expected chimeric Junctiom out file: {} ".format(chimJ_file))
         
         # must make splice file:
-        chimJ_introns_file = output_prefix + os.path.basename(chimJ_file) + ".introns.tmp"
+        chimJ_introns_file = output_prefix + "." + os.path.basename(chimJ_file) + ".introns.tmp"
         cmd = str(os.path.join(utildir, "STAR_chimeric_junctions_to_introns.pl") +
                   " -J {} > {}".format(chimJ_file, chimJ_introns_file))
         subprocess.check_call(cmd, shell=True)
-
+        
         introns_dict = ioc.supplement_introns_from_chimeric_junctions_file(chimJ_introns_file, introns_dict, chr_intron_bounds)
 
     introns_output_file = output_prefix + ".introns"
