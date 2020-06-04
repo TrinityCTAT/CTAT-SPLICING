@@ -218,13 +218,13 @@ def supplement_introns_from_chimeric_junctions_file(chimeric_out_introns_file : 
                 intron_obj = introns_dict[intron]
                 intron_obj.uniq_mapped += uniq_map
                 intron_obj.multi_mapped += multi_map
-                logger.info("-supplementing existing intron: " + str(intron_obj) + " with uniq: {}, multi: {}".format(uniq_map, multi_map))
+                logger.debug("-supplementing existing intron: " + str(intron_obj) + " with uniq: {}, multi: {}".format(uniq_map, multi_map))
             else:
                 # see if intron has known splice sites.
                 intron_obj = try_make_intron_obj(intron, chr_intron_bounds, uniq_map, multi_map)
                 if intron_obj is not None:
                     introns_dict[intron] = intron_obj
-                    logger.info("-supplementing NEW intron: " + str(intron_obj))
+                    logger.debug("-supplementing NEW intron: " + str(intron_obj))
             
     return introns_dict
 
