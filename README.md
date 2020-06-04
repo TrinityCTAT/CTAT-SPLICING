@@ -1,2 +1,2 @@
 # CTAT-SPLICING
-detection of cancer splicing aberrations
+detection and annotation of cancer splicing aberrations
