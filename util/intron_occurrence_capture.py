@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 
 import sys, os, re, io
-import pandas as pd
-import pyranges as pr
 import gzip as gz
 import logging
 import argparse
@@ -109,7 +107,7 @@ class Intron:
 
         
 
-def map_introns_from_splice_tab(tab_gz_filename : str,
+def map_introns_from_splice_tab(tab_filename : str,
                                 chr_intron_bounds : dict) -> dict:
         
     
@@ -146,52 +144,59 @@ def map_introns_from_splice_tab(tab_gz_filename : str,
 
 
     introns_dict = dict()
-        
-    with gz.open(tab_gz_filename, 'rt') as fh:
-        for line in fh:
-            line = line.rstrip()
-            vals = line.split("\t")
-            chr = vals[0]
-            intron_lend = vals[1]
-            intron_rend = vals[2]
 
-            strand = '+' if vals[3] == "1" else '-'
+    fh = None
+    if tab_filename[-3:] == ".gz":
+        fh = gz.open(tab_filename, 'rt')
+    else:
+        fh = open(tab_filename, 'rt')
 
-            intron_motif = vals[4]
-            annotated_flag = vals[5]
-            uniq_mapped = vals[6]
-            multi_mapped = vals[7]
-            max_splice_overhang = vals[8]
-            
-            
-            intron_tok_A = "{}:{}:{}".format(chr, intron_lend, strand)
-            intron_tok_B = "{}:{}:{}".format(chr, intron_rend, strand)
-            
-            genesA = None
-            genesB = None
+    
+    for line in fh:
+        line = line.rstrip()
+        vals = line.split("\t")
+        chr = vals[0]
+        intron_lend = vals[1]
+        intron_rend = vals[2]
 
-            if intron_tok_A in chr_intron_bounds:
-                genesA = chr_intron_bounds[intron_tok_A]
+        strand = '+' if vals[3] == "1" else '-'
 
-            if intron_tok_B in chr_intron_bounds:
-                genesB = chr_intron_bounds[intron_tok_B]
-
-            if genesA and genesB:
-
-                if genesA == genesB:
-                    genes_entry = ",".join(list(genesA))
-                else:
-                    genes_entry = ",".join(list(genesA)) + "--" + ",".join(list(genesB))
-
-                    
-                intron_tok = "{}:{}-{}".format(chr, intron_lend, intron_rend)
-                intron_obj = Intron(chr, intron_lend, intron_rend, strand,
-                                    intron_motif, annotated_flag, int(uniq_mapped),
-                                    int(multi_mapped), max_splice_overhang, genes_entry)
-
-                introns_dict[intron_tok] = intron_obj
+        intron_motif = vals[4]
+        annotated_flag = vals[5]
+        uniq_mapped = vals[6]
+        multi_mapped = vals[7]
+        max_splice_overhang = vals[8]
 
 
+        intron_tok_A = "{}:{}:{}".format(chr, intron_lend, strand)
+        intron_tok_B = "{}:{}:{}".format(chr, intron_rend, strand)
+
+        genesA = None
+        genesB = None
+
+        if intron_tok_A in chr_intron_bounds:
+            genesA = chr_intron_bounds[intron_tok_A]
+
+        if intron_tok_B in chr_intron_bounds:
+            genesB = chr_intron_bounds[intron_tok_B]
+
+        if genesA and genesB:
+
+            if genesA == genesB:
+                genes_entry = ",".join(list(genesA))
+            else:
+                genes_entry = ",".join(list(genesA)) + "--" + ",".join(list(genesB))
+
+
+            intron_tok = "{}:{}-{}".format(chr, intron_lend, intron_rend)
+            intron_obj = Intron(chr, intron_lend, intron_rend, strand,
+                                intron_motif, annotated_flag, int(uniq_mapped),
+                                int(multi_mapped), max_splice_overhang, genes_entry)
+
+            introns_dict[intron_tok] = intron_obj
+
+    fh.close()
+    
     return introns_dict
 
 
