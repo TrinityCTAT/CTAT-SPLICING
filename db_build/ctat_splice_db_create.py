@@ -30,12 +30,12 @@ def main():
 
     
     if not (args.create or args.index):
-        sys.stderr.write("Must select --create or --index <tablename>  ..... nothing to do here.")
+        sys.stderr.write("\n\n\tMust select --create or --index <tablename>  ..... nothing to do here.\n\n")
         sys.exit(1)
 
 
     if args.create and os.path.exists(sqlite3_dbname):
-        sys.stderr.write("-database file {} already exists. Please rename it or provide a different database anme via --sqlite3_db")
+        sys.stderr.write("\n\n\tDatabase file {} already exists. Please rename it or provide a different database anme via --sqlite3_db\n\n".format(sqlite3_dbname))
         sys.exit(1)
 
 
@@ -45,7 +45,7 @@ def main():
 
     if args.create:
 
-        logger.info("-creating database: {}".format(sqlite_dbname))
+        logger.info("-creating database: {}".format(sqlite3_dbname))
                 
         c.execute("CREATE TABLE samples " +
                   " (sample_name TEXT, " +
@@ -100,7 +100,7 @@ def main():
                   "  pvalue REAL)")
 
 
-        c.commit()
+        conn.commit()
 
         ## done database creation
 
@@ -115,14 +115,14 @@ def main():
                 logger.info("-indexing table: samples")
                 
                 c.execute("CREATE UNIQUE INDEX samples_table_idx_sample_name ON samples(sample_name)")
-                c.commit()
+                conn.commit()
 
             if tablename == 'intron_feature':
 
                 logger.info("-indexing table: intron_feature")
 
                 c.execute("CREATE UNIQUE INDEX intron_feature_idx_intron ON intron_feature (intron)")
-                c.commit()
+                conn.commit()
 
             if tablename == 'intron_occurrence':
 
@@ -143,7 +143,7 @@ def main():
                 
                 c.execute("CREATE INDEX intron_sample_type_counts_idx_intron ON intron_sample_type_counts(intron)")
                     
-                c.commit()
+                conn.commit()
 
             
             if tablename == "tumor_vs_normal":
@@ -154,9 +154,16 @@ def main():
                 
                 c.execute("CREATE INDEX tumor_vs_normal_idx_intron ON tumor_vs_normal(intron)")
 
-                c.commit()
+                conn.commit()
 
 
     logger.info("-done")
     
     sys.exit(0)
+
+
+
+if __name__=='__main__':
+    main()
+
+    
