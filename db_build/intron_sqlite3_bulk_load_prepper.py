@@ -79,14 +79,15 @@ def main():
 
                     if classname == "TCGA":
                         TN = 'T'
-                        if sample[-3] == "-NT":
+                        
+                        if sample[-3:] == "-NT":
                             TN = 'N'
-                            
+                        
                         sample_type = sample.split("-")[0]
 
                     elif classname == "GTEx":
 
-                        assert(sample_type in GTEx_sample_to_tissue_type)
+                        assert(sample in GTEx_sample_to_tissue_type)
                         sample_type = GTEx_sample_to_tissue_type[sample]
 
                     else:
@@ -163,7 +164,17 @@ def main():
 
 def parse_GTEx_sample_types():
 
-    
+    gtex_sample_to_tissue = dict()
+
+    gtex_sample_file = os.path.join(os.path.dirname(__file__), "gtex_sample_info.tsv")
+    with open(gtex_sample_file, 'rt') as fh:
+        header = next(fh)
+        for line in fh:
+            line = line.rstrip()
+            (sample_name, tissue_type) = line.split("\t")
+            gtex_sample_to_tissue[sample_name] = tissue_type
+
+    return gtex_sample_to_tissue
 
 
 if __name__ == '__main__':
