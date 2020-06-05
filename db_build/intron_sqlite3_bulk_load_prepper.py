@@ -28,6 +28,8 @@ def main():
     sqlite3_dbname = args.sqlite3_db
     input_files = args.input
 
+    GTEx_sample_to_tissue_type = parse_GTEx_sample_types()
+    
     ## ----------
     ##  samples
     bulk_samples_ofh = open("bulk.{}.samples.tsv".format(sqlite3_dbname), 'wt')
@@ -71,10 +73,32 @@ def main():
 
                 ## sample:     # fields: sample_name, db_class, sample_type, total_uniq_count, total_multi_count, total_count
                 if sample not in samples:
+
+                    ## determine if tumor or normal
+                    TN = 'N'
+
+                    if classname == "TCGA":
+                        TN = 'T'
+                        if sample[-3] == "-NT":
+                            TN = 'N'
+                            
+                        sample_type = sample.split("-")[0]
+
+                    elif classname == "GTEx":
+
+                        assert(sample_type in GTEx_sample_to_tissue_type)
+                        sample_type = GTEx_sample_to_tissue_type[sample]
+
+                    else:
+                        raise RuntimeError("Error, not recognizing class type: {}".format(classname))
+                                           
+                                        
                     sample_struct = samples[sample] = { 'db_class' : classname,
+                                                        'sample_type' : sample_type,
                                                         'total_uniq_count' : 0,
                                                         'total_multi_count' : 0,
-                                                        'total_count' : 0 }
+                                                        'total_count' : 0,
+                                                        'TN' : TN}
                 else:
                     sample_struct = samples[sample]
 
@@ -113,10 +137,7 @@ def main():
                                                             str(unique_mappings),
                                                             str(multi_mappings),
                                                             str(unique_mappings + multi_mappings),
-                                                            max_spliced_align_overhang,
-                                                            "-1", # norm unique mappings
-                                                            "-1", # norm multi mappings
-                                                            "-1" # norm all mappings
+                                                            max_spliced_align_overhang
                                                             ]) + "\n")
         
         sys.stderr.write("  ok\n")
@@ -126,10 +147,11 @@ def main():
     for sample, sample_struct in samples.items():
         bulk_samples_ofh.write( "\t".join([sample,
                                            sample_struct['db_class'],
-                                           "NA",
+                                           sample_struct['sample_type'],
                                            str(sample_struct['total_uniq_count']),
                                            str(sample_struct['total_multi_count']),
-                                           str(sample_struct['total_count']) ] ) + "\n")
+                                           str(sample_struct['total_count']),
+                                           sample_struct['TN']] ) + "\n")
         
 
     logger.info("Writing bulk load files")
@@ -138,46 +160,8 @@ def main():
 
 
 
-def build_tables():
-    
-    conn = sqlite3.connect(sqlite3_dbname)
 
-    c = conn.cursor()
-
-    ## samples table:
-    c.execute("CREATE TABLE samples \
-                 (sample_name TEXT, \
-                  db_class TEXT, \
-                  sample_type TEXT, \
-                  total_uniq_count INT, \
-                  total_multi_count INT, \
-                  total_count INT)")
-
-    
-    ## intron_feature table
-    c.execute("CREATE TABLE intron_feature \
-                 (intron TEXT, \
-                  chromosome TEXT, \
-                  start INT, \
-                  end INT, \
-                  strand INT, \
-                  intron_motif INT, \
-                  annot_status INT, \
-                  genes TEXT)")
-
-    ## intron_occurrence table
-    c.execute("CREATE TABLE intron_occurrence \
-                  (intron TEXT, \
-                   sample TEXT, \
-                   unique_mappings INT, \
-                   multi_mappings INT, \
-                   all_mappings INT, \
-                   max_spliced_align_overhang INT, \
-                   norm_unique_mappings REAL, \
-                   norm_multi_mappings REAL, \
-                   norm_all_mappings REAL) ")
-    
-    conn.commit()
+def parse_GTEx_sample_types():
 
     
 
