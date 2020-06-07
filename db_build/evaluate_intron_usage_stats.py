@@ -31,6 +31,7 @@ def main():
 
     ## get counts of samples according to tissue type
     query = "select db_class, sample_type, count(*) from samples group by db_class, sample_type"
+    #logger.info(query)
     c.execute(query)
     rows = c.fetchall()
     sample_type_counts = defaultdict(int)
@@ -38,7 +39,7 @@ def main():
         (db_class, sample_type, count) = row
         sample_type = "^".join([db_class, sample_type])
         sample_type_counts[sample_type] += count
-        base_sample_type = "^".join([db_class, "ALL"])
+        base_sample_type = "^".join([db_class, "total"])
         sample_type_counts[base_sample_type] += count
 
 
@@ -49,7 +50,9 @@ def main():
             intron_feature = intron_feature.rstrip()
             logger.info(intron_feature)
             start_time = time.time()
+
             examine_intron_feature_usage_stats(intron_feature, c, sample_type_counts, ofh)
+
             end_time = time.time()
             seconds = int(end_time - start_time)
             logger.info("-took {} seconds".format(seconds))
@@ -99,7 +102,7 @@ def examine_intron_feature_usage_stats(intron_feature : str,
 
         ## simple counting intron occurrences according to sample type
         specific_sample_type = "^".join([db_class, sample_type])
-        base_sample_type = "^".join([db_class, "ALL"])
+        base_sample_type = "^".join([db_class, "total"])
 
         if intron_unique_mappings != "0":
             add_to_counter(specific_sample_type, "intron_unique_mappings")
@@ -115,19 +118,24 @@ def examine_intron_feature_usage_stats(intron_feature : str,
 
 
         ## generate normalized counts
-        norm_unique_mappings = int(intron_unique_mappings) / int(sample_total_uniq_count) * 1e6
-        norm_multi_mapings = int(intron_multi_mappings) / int(sample_total_multi_count) * 1e6
-        norm_all_mappings = int(intron_all_mappings) / int(sample_total_count) * 1e6
+        #norm_unique_mappings = int(intron_unique_mappings) / int(sample_total_uniq_count) * 1e6
+        #norm_multi_mapings = int(intron_multi_mappings) / int(sample_total_multi_count) * 1e6
+        #norm_all_mappings = int(intron_all_mappings) / int(sample_total_count) * 1e6
         
-        print("\t".join(["INTRON_NORM_VALS", intron_token, sample_name, "{:.4f}".format(norm_unique_mappings),
-                         "{:.4f}".format(norm_multi_mapings), "{:.4f}".format(norm_all_mappings)]),
-              file=ofh)
+        #print("\t".join(["INTRON_NORM_VALS", intron_token, sample_name, "{:.4f}".format(norm_unique_mappings),
+        #                 "{:.4f}".format(norm_multi_mapings), "{:.4f}".format(norm_all_mappings)]),
+        #      file=ofh)
         
+
+
+    # intron_sample_type_counts  (intron TEXT,   db_class TEXT,   sample_type TEXT,   uniq_count INT,   uniq_pct REAL,   multi_count INT,   multi_pct REAL,   all_count INT,   all_pct REAL);
     
     ## report on findings.
     categories = ("intron_unique_mappings", "intron_multi_mappings", "intron_all_mappings")
     for sample_grp_type, counter_dict in sample_type_counter.items():
-        output = ["INTRON_SAMPLE_TYPE_COUNTER", sample_grp_type]
+        output = [intron_token, sample_grp_type]
+
+
         num_sample_counts = sample_type_counts[sample_grp_type]
         
         for cat in categories:
