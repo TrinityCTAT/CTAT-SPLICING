@@ -67,17 +67,6 @@ def main():
                   "  annot_status INT, " +
                   "  genes TEXT)")
         
-        c.execute("CREATE TABLE intron_sample_type_counts " +
-                  " (intron TEXT, " +
-                  "  db_class TEXT, " +
-                  "  sample_type TEXT, " +
-                  "  uniq_count INT, " +
-                  "  uniq_pct REAL, " +
-                  "  multi_count INT, " +
-                  "  multi_pct REAL, " +
-                  "  all_count INT, " +
-                  "  all_pct REAL)")
-    
         c.execute("CREATE TABLE intron_occurrence " +
                   " (intron TEXT, " +
                   "  sample TEXT, " +
@@ -86,6 +75,15 @@ def main():
                   "  all_mappings INT, " +
                   "  max_spliced_align_overhang INT)")
 
+        c.execute("CREATE TABLE intron_sample_type_counts " +
+                  " (intron TEXT, " +
+                  "  db_class TEXT, " +
+                  "  sample_type TEXT, " +
+                  "  uniq_map_sample_count INT, " +
+                  "  uniq_map_sample_pct REAL, " +
+                  "  all_map_sample_count INT, " +
+                  "  all_map_sample_pct REAL)")
+    
 
         c.execute("CREATE TABLE tumor_vs_normal " +
                   " (intron TEXT, " +

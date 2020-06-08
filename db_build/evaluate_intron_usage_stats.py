@@ -69,17 +69,14 @@ def examine_intron_feature_usage_stats(intron_feature : str,
                                        sample_type_counts : collections.defaultdict,
                                        ofh : typing.TextIO):
     
-    query = str("select s.sample_name, s.db_class, s.sample_type, s.total_uniq_count, s.total_multi_count, s.total_count, "
-                + " io.intron, io.unique_mappings, io.multi_mappings, io.all_mappings "
+    query = str("select s.sample_name, s.db_class, s.sample_type, s.total_uniq_count, s.total_count, "
+                + " io.intron, io.unique_mappings, io.all_mappings "
                 + " from samples as s, intron_occurrence as io "
                 + " where s.sample_name = io.sample "
                 + "       and io.intron = ? " #\"{}\" ".format(intron_feature)
                 + "       and not (db_class = \"TCGA\" and TN = \"N\") ")  # skip the tumor normals for now... analyze separately.
                 
 
-    #logger.info(query)
-
-    #sys.exit(1)
 
     
     c.execute(query, (intron_feature,))
@@ -96,44 +93,30 @@ def examine_intron_feature_usage_stats(intron_feature : str,
     
 
     for row in rows:
-        (sample_name, db_class, sample_type, sample_total_uniq_count, sample_total_multi_count, sample_total_count,
-         intron_token, intron_unique_mappings, intron_multi_mappings, intron_all_mappings) = row
+        (sample_name, db_class, sample_type, sample_total_uniq_count, sample_total_count,
+         intron_token, intron_unique_mappings, intron_all_mappings) = row
 
 
         ## simple counting intron occurrences according to sample type
         specific_sample_type = "^".join([db_class, sample_type])
         base_sample_type = "^".join([db_class, "total"])
 
-        if intron_unique_mappings != "0":
+        if intron_unique_mappings != 0:
             add_to_counter(specific_sample_type, "intron_unique_mappings")
             add_to_counter(base_sample_type, "intron_unique_mappings")
 
-        if intron_multi_mappings != "0":
-            add_to_counter(specific_sample_type, "intron_multi_mappings")
-            add_to_counter(base_sample_type, "intron_multi_mappings")
-
-        if intron_all_mappings != "0":
+        if intron_all_mappings != 0:
             add_to_counter(specific_sample_type, "intron_all_mappings")
             add_to_counter(base_sample_type, "intron_all_mappings")
 
 
-        ## generate normalized counts
-        #norm_unique_mappings = int(intron_unique_mappings) / int(sample_total_uniq_count) * 1e6
-        #norm_multi_mapings = int(intron_multi_mappings) / int(sample_total_multi_count) * 1e6
-        #norm_all_mappings = int(intron_all_mappings) / int(sample_total_count) * 1e6
-        
-        #print("\t".join(["INTRON_NORM_VALS", intron_token, sample_name, "{:.4f}".format(norm_unique_mappings),
-        #                 "{:.4f}".format(norm_multi_mapings), "{:.4f}".format(norm_all_mappings)]),
-        #      file=ofh)
-        
-
-
-    # intron_sample_type_counts  (intron TEXT,   db_class TEXT,   sample_type TEXT,   uniq_count INT,   uniq_pct REAL,   multi_count INT,   multi_pct REAL,   all_count INT,   all_pct REAL);
-    
     ## report on findings.
-    categories = ("intron_unique_mappings", "intron_multi_mappings", "intron_all_mappings")
+    categories = ("intron_unique_mappings", "intron_all_mappings")
+    
+
     for sample_grp_type, counter_dict in sample_type_counter.items():
-        output = [intron_token, sample_grp_type]
+        db_class, sample_type = sample_grp_type.split("^")
+        output = [intron_token, db_class, sample_type]
 
 
         num_sample_counts = sample_type_counts[sample_grp_type]
@@ -145,7 +128,7 @@ def examine_intron_feature_usage_stats(intron_feature : str,
             
         print("\t".join(output), file=ofh)
     
-    
+    ofh.flush()
     
 
 if __name__ == '__main__':
