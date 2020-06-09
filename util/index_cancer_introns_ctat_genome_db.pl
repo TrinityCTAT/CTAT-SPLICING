@@ -64,6 +64,11 @@ main: {
     $idx->store_key_value("chr:ABC-DEF", "__placeholder_testval__");
     
     open(my $fh, $cancer_introns_tsv) or die "Error, cannot open file: $cancer_introns_tsv";
+    
+    my $column_header_line = <$fh>;
+    chomp $column_header_line;
+    $idx->store_key_value("column_headers", $column_header_line);
+    
     while (<$fh>) {
         chomp;
         my ($intron, $annot_text) = split(/\t/, $_, 2);

@@ -19,7 +19,7 @@ my $usage = <<__EOUSAGE__;
 
 #####################################################################
 #
-# --introns_file <string>          cancer introns tsv file
+# --introns_file <string>          cancer introns tsv file (requires a columns header line)
 #
 # --ctat_genome_lib <string>      /path/to/ctat_genome_lib_build_dir (default: $ctat_genome_lib)
 #
@@ -74,9 +74,19 @@ main: {
     unless($idx->get_value("chr:ABC-DEF") eq "__placeholder_testval__") {
         die "Error, $db_idx_file doesn't appear useable and must be rebuilt";
     }
+
+
+
     
     my $found = 0;
     open(my $fh, $introns_file) or die "Error, cannot open file: $introns_file";
+
+    # print header:
+    my $header = <$fh>;
+    chomp $header;
+    my $header_add = $idx->get_value("column_headers");
+    print join("\t", $header, $header_add) . "\n";
+    
     while (<$fh>) {
         chomp;
         my $input_line = $_;

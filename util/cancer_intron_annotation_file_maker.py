@@ -55,6 +55,10 @@ def main():
                 sys.stderr.write("\r[{}]  ".format(counter))
 
     sys.stderr.write("\nDone parsing.\n")
+
+    
+    # print header:
+    print("\t".join(["intron", "genes", "TCGA_sample_counts", "GTEx_sample_counts", "variant_name"]))
     
     # capture any known/annotated introns not defined as cancer introns based on empirical data
     for intron in intron_feature_names_dict:
