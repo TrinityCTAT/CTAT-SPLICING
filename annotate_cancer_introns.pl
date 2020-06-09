@@ -75,8 +75,6 @@ main: {
         die "Error, $db_idx_file doesn't appear useable and must be rebuilt";
     }
 
-
-
     
     my $found = 0;
     open(my $fh, $introns_file) or die "Error, cannot open file: $introns_file";
@@ -84,7 +82,16 @@ main: {
     # print header:
     my $header = <$fh>;
     chomp $header;
+
     my $header_add = $idx->get_value("column_headers");
+    $header_add =~ s/^intron\t//;
+    
+    my $already_got_genes_flag = 0;
+    if ($header =~ /\bgenes\t/) {
+        $already_got_genes_flag = 1;
+        $header_add =~ s/genes\t//;
+    }
+
     print join("\t", $header, $header_add) . "\n";
     
     while (<$fh>) {
@@ -95,6 +102,13 @@ main: {
                 
         my $intron_annot = $idx->get_value($intron);
         if ($intron_annot) {
+            
+            if ($already_got_genes_flag) {
+                my @x = split(/\t/, $intron_annot);
+                shift @x; # remove genes
+                $intron_annot = join("\t", @x);
+            }
+            
             print join("\t", $input_line, $intron_annot) . "\n";
             $found += 1;
         }
