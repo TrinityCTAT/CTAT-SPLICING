@@ -33,8 +33,8 @@ def main():
         header = next(fh)
         for line in fh:
             vals = line.split("\t")
-            genes = vals[1]
-            intron_feature = vals[2]
+            genes = vals[0]
+            intron_feature = vals[1]
 
             if intron_feature in seen:
                 continue
@@ -101,10 +101,10 @@ def parse_intron_feature_names(intron_feature_names_file : str) -> (dict, dict):
 def write_intron_feature_annotation(c : sqlite3.Cursor, intron_feature : str, genes : str, intron_feature_name : str) -> None:
     
 
-    query = str("select sample_type, all_count, all_pct " +
+    query = str("select sample_type, all_map_sample_count, all_map_sample_pct " +
                 " from intron_sample_type_counts " +
-                " where intron = ? and db_class = ? and sample_type != 'ALL' " +
-                " order by all_pct desc")
+                " where intron = ? and db_class = ? and sample_type != 'total' " +
+                " order by all_map_sample_pct desc")
 
     TCGA_vals = list()
     c.execute(query, (intron_feature, "TCGA") )
