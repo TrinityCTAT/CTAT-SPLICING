@@ -63,7 +63,13 @@ main: {
     ## store placeholder to ensure it's working in applications that leverage it.
     $idx->store_key_value("chr:ABC-DEF", "__placeholder_testval__");
     
-    open(my $fh, $cancer_introns_tsv) or die "Error, cannot open file: $cancer_introns_tsv";
+    my $fh;
+    if ($cancer_introns_tsv =~ /\.gz$/) {
+        open($fh, "gunzip -c $cancer_introns_tsv | ") or die "Error, cannot open file $cancer_introns_tsv via gunzip ";
+    }
+    else {
+        open($fh, $cancer_introns_tsv) or die "Error, cannot open file: $cancer_introns_tsv";
+    }
     
     my $column_header_line = <$fh>;
     chomp $column_header_line;
