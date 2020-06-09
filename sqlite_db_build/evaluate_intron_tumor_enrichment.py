@@ -35,7 +35,7 @@ def main():
 
 
     ## get counts of samples according to tissue type
-    query = "select db_class, sample_type, count(*) from samples group by db_class, sample_type"
+    query = "select db_class, sample_type, count(*) from samples where db_class = 'GTEx' or (db_class = 'TCGA' and TN = 'T') group by db_class, sample_type"
     c.execute(query)
     rows = c.fetchall()
     sample_type_counts = defaultdict(int)
@@ -45,7 +45,7 @@ def main():
         (db_class, sample_type, count) = row
         sample_type = "^".join([db_class, sample_type])
         sample_type_counts[sample_type] += count
-        base_sample_type = "^".join([db_class, "ALL"])
+        base_sample_type = "^".join([db_class, "total"])
         sample_type_counts[base_sample_type] += count
 
         if db_class == "TCGA":
@@ -85,7 +85,7 @@ def examine_intron_feature_for_enrichment(intron_feature : str,
                                           mean_tcga_count : int,
                                           mean_gtex_count : int) -> None:
 
-    query = str("select db_class, sample_type, uniq_count, uniq_pct, all_count, all_pct " +
+    query = str("select db_class, sample_type, uniq_map_sample_count, uniq_map_sample_pct, all_map_sample_count, all_map_sample_pct " +
                 " from intron_sample_type_counts " +
                 " where intron = ? ")
 
@@ -126,7 +126,7 @@ def examine_intron_feature_for_enrichment(intron_feature : str,
 
         assert(obj.db_class in ("TCGA", "GTEx", "NONE"))
 
-        if obj.sample_type == "ALL":
+        if obj.sample_type == "total":
             if obj.db_class == "TCGA":
                 tcga_all_obj = obj
             elif obj.db_class == "GTEx":
@@ -146,10 +146,10 @@ def examine_intron_feature_for_enrichment(intron_feature : str,
 
     ## examine tumor enrichment stats
 
-    # examine enrichment based on ALL (cumulative) samples.
+    # examine enrichment based on total (cumulative) samples.
 
-    count_tcga_all = sample_type_counts["TCGA^ALL"]
-    count_gtex_all = sample_type_counts["GTEx^ALL"]
+    count_tcga_all = sample_type_counts["TCGA^total"]
+    count_gtex_all = sample_type_counts["GTEx^total"]
 
     count_tcga_top = sample_type_counts["TCGA^{}".format(tcga_top_obj.sample_type)]
     if count_tcga_top == 0:
@@ -170,18 +170,18 @@ def examine_intron_feature_for_enrichment(intron_feature : str,
                                             [gtex_all_obj.all_count, count_gtex_all - gtex_all_obj.all_count]],
                                            alternative='greater')
 
-    # write sql for ALL comparison
-    sql = str("insert into tumor_vs_normal (intron, tumor_sample_type, normal_sample_type, tumor_yes, tumor_no, normal_yes, normal_no, odds_ratio) " +
-              "values (\"{}\",\"ALL\", \"ALL\",".format(intron_feature) +
-              "{},".format(tcga_all_obj.all_count) +
-              "{},".format(count_tcga_all - tcga_all_obj.all_count) + 
-              "{},".format(gtex_all_obj.all_count) +
-              "{},".format(count_gtex_all - gtex_all_obj.all_count) +
-              "{:.4}, ".format(tcga_all_enrichment) + 
-              "{:.4});".format(pvalue) ) 
-    print(sql, file=ofh)
 
+    #TABLE tumor_vs_normal  (intron TEXT,   tumor_sample_type TEXT,   normal_sample_type TEXT,   tumor_yes INT,   tumor_no INT,   normal_yes INT,   normal_no INT,   enrichment REAL,   odds_ratio REAL,   pvalue REAL);
 
+    print("\t".join([intron_feature, "total", "total",
+                     str(tcga_all_obj.all_count), str(count_tcga_all - tcga_all_obj.all_count),
+                     str(gtex_all_obj.all_count), str(count_gtex_all - gtex_all_obj.all_count),
+                     "{:.4}".format(tcga_all_enrichment),
+                     "{:.4}".format(oddsratio),
+                     "{:.4}".format(pvalue)]),
+          file=ofh)
+                     
+    
     #################
     ## top comparison
 
@@ -192,16 +192,18 @@ def examine_intron_feature_for_enrichment(intron_feature : str,
                                             [gtex_top_obj.all_count, count_gtex_top - gtex_top_obj.all_count] ],
                                            alternative='greater')
 
-    # write sql for top entry comparisons
-    sql = str("insert into tumor_vs_normal (intron, tumor_sample_type, normal_sample_type, tumor_yes, tumor_no, normal_yes, normal_no, odds_ratio) " +
-              "values (\"{}\", \"{}\", \"{}\", ".format(intron_feature, tcga_top_obj.sample_type, gtex_top_obj.sample_type) +
-              "{},".format(tcga_top_obj.all_count) +
-              "{},".format(count_tcga_top - tcga_top_obj.all_count) + 
-              "{},".format(gtex_top_obj.all_count) +
-              "{},".format(count_gtex_top - gtex_top_obj.all_count) +
-              "{:.4}, ".format(tcga_top_enrichment) +
-              "{:.4});".format(pvalue))
-    print(sql, file=ofh)
+    
+    print("\t".join([intron_feature, tcga_top_obj.sample_type, gtex_top_obj.sample_type,
+                     str(tcga_top_obj.all_count), str(count_tcga_top - tcga_top_obj.all_count),
+                     str(gtex_top_obj.all_count), str(count_gtex_top - gtex_top_obj.all_count),
+                     "{:.4}".format(tcga_top_enrichment),
+                     "{:.4}".format(oddsratio),
+                     "{:.4}".format(pvalue)]),
+          file=ofh)
+
+    
+
+
     
     return
     
