@@ -75,6 +75,24 @@ def main():
 
     subprocess.check_call(cmd, shell=True)
     
+
+
+
+
+    # Create the IGV Reports 
+    CTAT_Splicing_IGV = str(os.path.join(utildir,"CTAT_Splicing_IGV.py"))
+    ref_genome = str(os.path.join(ctat_genome_lib, "ref_genome.fa"))
+
+    IGV_cmd  = " ".join([   CTAT_Splicing_IGV,
+                            introns_output_file,
+                            ref_genome,
+                            " --ctat_genome_lib ", ctat_genome_lib,
+                            "--flanking 10000",
+                            "--output igvjs_viewer.html"
+                            ])
+
+    subprocess.check_call(IGV_cmd, shell=True)
+
     sys.exit(0)
 
 
