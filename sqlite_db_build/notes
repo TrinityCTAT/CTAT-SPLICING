@@ -1,0 +1,129 @@
+
+
+get_ChimJ_to_introns_cmds.py > chimJ_introns.cmds 
+
+
+~/utilities/trinity_uger_cmd_processor.rh7only.py chimJ_introns.cmds 
+
+
+c TCGA.splice_files.list  | perl -lane '$adjname = $_; $adjname =~ s/.SJ.out.tab.gz/.Chimeric.out.junction.introns/; print join("\t", $_, $adjname);' > TCGA.splice_files.pairs.list
+
+
+c GTEx.splice_files.list  | perl -lane '$adjname = $_; $adjname =~ s/.SJ.out.tab.gz/.Chimeric.out.junction.introns/; print join("\t", $_, $adjname);' > GTEx.splice_files.pairs.list
+
+
+
+## generate intron occurrence raw data
+
+~/GITHUB/CTAT_SPLICING/util/intron_occurrence_capture.py  --ctat_genome_lib $CTAT_GENOME_LIB --tab_gz_files_list_file GTEx.splice_files.pairs.list --output_file_name GTEx.intron_occurrences.tsv --db_class GTEx
+
+
+~/GITHUB/CTAT_SPLICING/util/intron_occurrence_capture.py  --ctat_genome_lib $CTAT_GENOME_LIB --tab_gz_files_list_file TCGA.splice_files.pairs.list --output_file_name TCGA.intron_occurrences.tsv --db_class TCGA 
+
+
+ /home/unix/bhaas/GITHUB/CTAT_SPLICING/db_build/intron_sqlite3_bulk_load_prepper.py --sqlite3_db ctat_splice_Jun052020.sqlite --input TCGA.intron_occurrences.tsv GTEx.intron_occurrences.tsv 
+
+
+
+## create / load database
+ ~/GITHUB/CTAT_SPLICING/db_build/ctat_splice_db_create.py --sqlite3_db ctat_splice_Jun052020.sqlite --create
+
+pragma journal_mode=memory;
+pragma synchronous=0;
+pragma cache_size=4000000;
+.mode tab
+.import bulk.ctat_splice_Jun052020.sqlite.samples.tsv samples
+.import bulk.ctat_splice_Jun052020.sqlite.intron_feature.tsv intron_feature
+.import bulk.ctat_splice_Jun052020.sqlite.intron_occurrence.tsv intron_occurrence
+
+
+~/GITHUB/CTAT_SPLICING/db_build/ctat_splice_db_create.py --sqlite3_db ctat_splice_Jun052020.sqlite --index samples
+
+~/GITHUB/CTAT_SPLICING/db_build/ctat_splice_db_create.py --sqlite3_db ctat_splice_Jun052020.sqlite --index intron_feature
+
+~/GITHUB/CTAT_SPLICING/db_build/ctat_splice_db_create.py --sqlite3_db ctat_splice_Jun052020.sqlite --index intron_occurrence
+
+
+
+## prep for intron analysis
+
+m bulk.ctat_splice_Jun052020.sqlite.intron_feature.tsv  | print.pl 0 > all_intron_features.list
+
+wc -l all_intron_features.list 
+1579135 all_intron_features.list
+
+~/GITHUB/CTAT_SPLICING/db_build/partition_intron_features.py   all_intron_features.list 100 intervals_distributed 100
+
+
+## intron usage stats
+
+
+find `pwd`/intervals_distributed/ -regex ".*introns.*.txt" | perl -lane 'print "/home/unix/bhaas/GITHUB/CTAT_SPLICING/db_build/evaluate_intron_usage_stats.py --sqlite3_db `pwd`/ctat_splice_Jun052020.sqlite --intron_features_file $_ --output_file $_.stats";' | tee evaluate_stats.cmds 
+
+ ~/utilities/uger_runner_rh7.singularity.py evaluate_stats.cmds
+
+
+
+
+find intervals_distributed/ -regex ".*stats" -exec cat {} \; > bulk.ctat_splice_Jun052020.sqlite.intron_sample_type_counts
+
+
+sqlite> pragma synchronous=0;
+sqlite> pragma cache_size=4000000;
+sqlite> .mode tab
+sqlite> 
+sqlite> .import bulk.ctat_splice_Jun052020.sqlite.intron_sample_type_counts intron_sample_type_counts
+
+~/GITHUB/CTAT_SPLICING/db_build/ctat_splice_db_create.py --sqlite3_db ctat_splice_Jun052020.sqlite --index  intron_sample_type_counts
+
+
+# tumor enrichment
+
+
+find `pwd`/intervals_distributed/ -regex ".*introns.*.txt"  |   perl -lane 'print "/home/unix/bhaas/GITHUB/CTAT_SPLICING/db_build/evaluate_intron_tumor_enrichment.py --sqlite3_db /seq/RNASEQ/CTAT_SPLICING/TCGA_vs_GTEx_spliceCompare/ctat_splice_Jun052020.sqlite --intron_features_file $_ --output_file $_.tumor_enrichment";' > tumor_enrichment.cmds
+
+~/utilities/trinity_uger_cmd_processor.rh7only.py  tumor_enrichment.cmds
+
+find intervals_distributed/ -regex ".*enrichment" -exec cat {} \; > bulk.ctat_splice_Jun052020.sqlite.tumor_vs_normal
+
+sqlite> pragma synchronous=0;                                                                       
+sqlite> pragma cache_size=4000000;                                                                                                              
+sqlite> .mode tab 
+.import bulk.ctat_splice_Jun052020.sqlite.tumor_vs_normal tumor_vs_normal
+
+~/GITHUB/CTAT_SPLICING/db_build/ctat_splice_db_create.py --sqlite3_db ctat_splice_Jun052020.sqlite --index tumor_vs_normal
+
+
+# generate reports
+
+ echo select if.genes, tvn.\* from intron_feature if, tumor_vs_normal tvn where if.intron = tvn.intron | sqlite3 ctat_splice_Jun052020.sqlite > tumor_enrichment.incl_genes.tsv
+
+----
+R
+library(tidyverse)
+data = read.table("tumor_enrichment.incl_genes.tsv", sep="|")
+colnames(data) = c("genes", "intron", "tumor_type", "normal_type", "tumor_yes", "tumor_no", "normal_yes", "normal_no", "enrichment", "odds_ratio", "pvalue")
+data = data %>% arrange(pvalue, desc(odds_ratio))
+signif = data %>% filter(pvalue < 0.05)
+
+write.table(signif, file='signif.data', quote=F, sep="\t", row.names=F)
+----
+
+m signif.data  | perl -lane '@x = split(/\t/); if ($x[2] eq "total" && $x[6] <= 5) { print $x[1];}' | sort -u > signif.data.lt5normal
+
+echo pvalue >> signif.data.lt5normal 
+
+join_any.pl  signif.data.lt5normal signif.data > cancer_introns.b38.tsv
+
+/home/unix/bhaas/GITHUB/CTAT_SPLICING/util/cancer_intron_annotation_file_maker.py --sqlite3_db ctat_splice_Jun052020.sqlite --cancer_introns cancer_introns.b38.tsv --intron_feature_names ~/GITHUB/CTAT_SPLICING/known_aberrants/b38.aberrants.tsv  > cancer_introns.b38.annot_ready.tsv
+
+
+
+/home/unix/bhaas/GITHUB/CTAT_SPLICING/util/index_cancer_introns_ctat_genome_db.pl --cancer_introns_tsv cancer_introns.b38.annot_ready.tsv --ctat_genome_lib $CTAT_GENOME_LIB
+
+
+wget http://hgdownload.soe.ucsc.edu/goldenPath/hg38/liftOver/hg38ToHg19.over.chain.gz
+
+~/GITHUB/CTAT_SPLICING/util/b38_to_hg19_intron_coord_converter.py cancer_introns.b38.annot_ready.tsv hg38ToHg19.over.chain.gz  > cancer_introns.b37.annot_ready.tsv
+
+~/GITHUB/CTAT_SPLICING/util/index_cancer_introns_ctat_genome_db.pl  --cancer_introns_tsv cancer_introns.b37.annot_ready.tsv.gz --ctat_genome_lib $CTAT_GENOME_LIB/../../GRCh37_gencode_v19_CTAT_lib_Apr032020.plug-n-play/ctat_genome_lib_build_dir
