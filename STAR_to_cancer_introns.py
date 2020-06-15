@@ -20,9 +20,11 @@ def main():
     parser.add_argument("--ctat_genome_lib", dest="ctat_genome_lib", type=str, required=False, default=ctat_genome_lib, help="ctat genome lib build dir")
     parser.add_argument("--SJ_tab_file", dest="SJ_tab_file", type=str, required=True, help="STAR SJ.out.tab file")
     parser.add_argument("--chimJ_file", dest="chimJ_file", type=str, required=False, default=None, help="STAR Chimeric.out.junction file")
-    parser.add_argument("--bam_file", dest="bam_file", type=str, required=True, default=None, help="STAR generated BAM file")
     parser.add_argument("--output_prefix", dest="output_prefix", type=str, required=True, help="prefix for all output files")
-    
+
+    parser.add_argument("--vis", action='store_true', default=False, help="Generate igv html ctat splicing visualization (requires --bam_file to be set)")
+    parser.add_argument("--bam_file", dest="bam_file", type=str, required=False, default=None, help="STAR generated BAM file")
+        
     args = parser.parse_args()
 
     ctat_genome_lib = args.ctat_genome_lib
@@ -34,7 +36,10 @@ def main():
     chimJ_file = args.chimJ_file
     output_prefix = args.output_prefix
     bam_file = args.bam_file
-    
+    VIS_flag = args.vis
+
+    if VIS_flag and not bam_file:
+        raise RuntimeError("Error, if --vis, must specify --bam_file ")
     
     
     if not os.path.exists(SJ_tab_file):
@@ -79,24 +84,24 @@ def main():
     
 
 
+    if VIS_flag:
 
+        # Create the IGV Reports 
+        CTAT_Splicing_IGV = str(os.path.join(utildir,"CTAT_Splicing_IGV.py"))
+        ref_genome = str(os.path.join(ctat_genome_lib, "ref_genome.fa"))
+        ref_bed = str(os.path.join(ctat_genome_lib, "ref_annot.sorted.bed.gz"))
+        introns_cancer_output_file = str(output_prefix + ".cancer.introns")
 
-    # Create the IGV Reports 
-    CTAT_Splicing_IGV = str(os.path.join(utildir,"CTAT_Splicing_IGV.py"))
-    ref_genome = str(os.path.join(ctat_genome_lib, "ref_genome.fa"))
-    ref_bed = str(os.path.join(ctat_genome_lib, "ref_annot.sorted.bed.gz"))
-    introns_cancer_output_file = str(output_prefix + ".cancer.introns")
+        IGV_cmd  = " ".join([   CTAT_Splicing_IGV,
+                                introns_cancer_output_file,
+                                ref_genome,
+                                "--bam ", bam_file,
+                                "--bed ", ref_bed, 
+                                "--flanking 10000",
+                                "--output igvjs_viewer.html"
+                                ])
 
-    IGV_cmd  = " ".join([   CTAT_Splicing_IGV,
-                            introns_cancer_output_file,
-                            ref_genome,
-                            "--bam ", bam_file,
-                            "--bed ", ref_bed, 
-                            "--flanking 10000",
-                            "--output igvjs_viewer.html"
-                            ])
-
-    subprocess.check_call(IGV_cmd, shell=True)
+        subprocess.check_call(IGV_cmd, shell=True)
 
     sys.exit(0)
 
