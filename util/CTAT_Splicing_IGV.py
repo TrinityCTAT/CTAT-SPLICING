@@ -18,8 +18,11 @@ from urllib.request import urlopen
 from igv_reports import fasta, ideogram, datauri, tracks, feature, bam, vcf, utils
 from igv_reports.varianttable import VariantTable
 from igv_reports.bedtable import BedTable
-logging.basicConfig(format='\n %(levelname)s : %(message)s', level=logging.DEBUG)
 
+logging.basicConfig(level=logging.INFO, 
+                    format='%(asctime)s : %(levelname)s : %(message)s',
+                    datefmt='%H:%M:%S')
+logger = logging.getLogger(__name__)
 
 import pandas as pd
 import tempfile
@@ -30,6 +33,9 @@ import tempfile
 class RNAseqSplice:
 
     def __init__(self, args_parsed):
+
+        logger.info(" Creating the IGV Report.")
+
 
         import warnings
 
@@ -64,7 +70,6 @@ class RNAseqSplice:
 
         # Read in the cander intron data 
         dt = pd.read_table(cancer_introns)
-        
 
         # split chr:start:stop into seperate columns 
         split1 = dt["intron"].str.split(":",n = 1, expand = True) 
@@ -77,8 +82,6 @@ class RNAseqSplice:
         bed_file = split1
         bed_file.insert(loc = 3, column = "NAME", value = dt["variant_name"])
         self.bed_file = bed_file
-
-        print(bed_file)
 
         return(self)
         
@@ -98,7 +101,7 @@ class RNAseqSplice:
         # Create the output bed file
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         
-        bed_output =os.path.join(self.output_dir, "splicing_output.bed")
+        bed_output =os.path.join(self.output_dir, "Introns.bed")
         file = open(bed_output, "w") 
 
         # Convert the bed file pandas Data Frame to a csv string format 
