@@ -68,18 +68,23 @@ def examine_intron_feature_usage_stats(intron_feature : str,
                                        c : sqlite3.Cursor,
                                        sample_type_counts : collections.defaultdict,
                                        ofh : typing.TextIO):
+
+
+    MIN_TOTAL_READ_MAPPINGS = 5 # based on a handful of known cancer introns.
     
     query = str("select s.sample_name, s.db_class, s.sample_type, s.total_uniq_count, s.total_count, "
                 + " io.intron, io.unique_mappings, io.all_mappings "
                 + " from samples as s, intron_occurrence as io "
                 + " where s.sample_name = io.sample "
-                + "       and io.intron = ? " #\"{}\" ".format(intron_feature)
+                + "       and io.intron = \"{}\" ".format(intron_feature)
+                + "       and io.all_mappings >= {} ".format(MIN_TOTAL_READ_MAPPINGS)
                 + "       and not (db_class = \"TCGA\" and TN = \"N\") ")  # skip the tumor normals for now... analyze separately.
                 
 
-
+    #print(query)
+    #exit(0)
     
-    c.execute(query, (intron_feature,))
+    c.execute(query) #, (intron_feature, MIN_TOTAL_READ_MAPPINGS))
 
     rows = c.fetchall()
 
