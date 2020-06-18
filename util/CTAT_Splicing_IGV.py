@@ -67,22 +67,27 @@ class RNAseqSplice:
         to create the IGV report.
         '''
         cancer_introns = self.cancer_introns
-
         # Read in the cander intron data 
         dt = pd.read_table(cancer_introns)
-
         # split chr:start:stop into seperate columns 
         split1 = dt["intron"].str.split(":",n = 1, expand = True) 
         split2 = split1[1].str.split("-",n = 1, expand = True) 
-        split1[2] = split2[0]
-        split1[3] = split2[1]
+        split1["START"] = pd.to_numeric(split2[0]) -1 
+        split1["END"] = pd.to_numeric(split2[1])
         split1.drop(columns =[1], inplace = True) 
-        
         # Add the name column to the data table 
         bed_file = split1
-        bed_file.insert(loc = 3, column = "NAME", value = dt["variant_name"])
+        # Make the name column for the bed file 
+        dt['uniq_mapped_str'] = 'uniquely_mapped=' + dt['uniq_mapped'].astype(str)
+        dt['multi_mapped_str'] = 'multi_mapped=' + dt['multi_mapped'].astype(str)
+        name = dt['uniq_mapped_str'] + ";" + dt['multi_mapped_str']
+        # insert them into the bed file 
+        bed_file.insert(loc = 3, column = "NAME", value = name)
+        bed_file.insert(loc = 4, column = "uniquely_mapped", value = dt['uniq_mapped'])
+        bed_file.insert(loc = 5, column = "strand", value = dt['strand'])
+        # Sort the BED File 
+        bed_file.sort_values(by=['START','END'], inplace=True, ascending=True)
         self.bed_file = bed_file
-
         return(self)
         
 
@@ -131,9 +136,7 @@ class RNAseqSplice:
         trackreaders = []
         if self.tracks is not None:
             for track in self.tracks:
-                print(track)
                 reader = utils.getreader(track)
-                print(reader)
                 trackreaders.append({
                     "track": track,
                     "reader": reader
