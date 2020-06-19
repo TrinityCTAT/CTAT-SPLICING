@@ -7,7 +7,7 @@ use warnings;
 use Carp;
 use Cwd;
 use FindBin;
-use lib ("$FindBin::Bin/../PerlLib");
+use lib ("$FindBin::Bin/PerlLib");
 use File::Basename;
 use Data::Dumper;
 use ChimericCigarParser;

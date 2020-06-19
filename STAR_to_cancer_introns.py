@@ -74,37 +74,68 @@ def main():
                                  str(intron.uniq_mapped), str(intron.multi_mapped)]) + "\n")
 
     # annotate for cancer introns.
+    cancer_introns_file = output_prefix + ".cancer.introns"
     cmd = str(os.path.join(utildir, "annotate_cancer_introns.pl") +
               " --introns_file {} ".format(introns_output_file) +
               " --ctat_genome_lib {} ".format(ctat_genome_lib) +
               " --intron_col 0 " +
-              " > {} ".format(output_prefix + ".cancer.introns") )
-
+              " > {} ".format(cancer_introns_file) )
+    
     subprocess.check_call(cmd, shell=True)
     
 
 
     if VIS_flag:
+        
+        # generate the intron/junctions bed needed by igv
+        igv_introns_bed_file = introns_output_file + ".for_IGV.bed"
+        cmd = str(os.path.join(utildir, "make_igv_splice_bed.py") +
+                  " --all_introns {} ".format(introns_output_file) +
+                  " --cancer_introns {} ".format(cancer_introns_file) +
+                  " --genome_lib_dir {} ".format(ctat_genome_lib) +
+                  " --output_bed {} ".format(igv_introns_bed_file) )
 
-        # Create the IGV Reports 
-        CTAT_Splicing_IGV = str(os.path.join(utildir,"CTAT_Splicing_IGV.py"))
-        ref_genome = str(os.path.join(ctat_genome_lib, "ref_genome.fa"))
-        ref_bed = str(os.path.join(ctat_genome_lib, "ref_annot.sorted.bed.gz"))
-        introns_cancer_output_file = str(output_prefix + ".cancer.introns")
+        subprocess.check_call(cmd, shell=True)
+        
 
-        IGV_cmd  = " ".join([   CTAT_Splicing_IGV,
-                                introns_cancer_output_file,
-                                ref_genome,
-                                "--bam ", bam_file,
-                                "--bed ", ref_bed, 
-                                "--flanking 10000",
-                                "--output igvjs_viewer.html"
-                                ])
-
-        subprocess.check_call(IGV_cmd, shell=True)
-
+        igv_tracks_config_file = write_igv_config(output_prefix, ctat_genome_lib,
+                                                  igv_introns_bed_file, bam_file,
+                                                  os.path.join(utildir, "misc/igv.tracks.json"))
+        
+                  
+        # Create the IGV Reports
+        cmd = str("create_report {} ".format(igv_introns_bed_file) +
+                  " {} ".format(os.path.join(ctat_genome_lib, "ref_genome.fa")) +
+                  " --type junction " +
+                  " --output {}.ctat-splicing.igv.html ".format(output_prefix) +
+                  " --track-config {} ".format(igv_tracks_config_file) +
+                  " --info-columns TCGA GTEx variant_name " +
+                  " --title 'CTAT_Splicing: my sample name' ")
+        
+        subprocess.check_call(cmd, shell=True)
+        
+        
     sys.exit(0)
 
+
+
+def write_igv_config(output_prefix, ctat_genome_lib, igv_introns_bed_file, bam_file, template_json_file):
+
+    json_template_text = subprocess.check_output("cat {}".format(template_json_file), shell=True).decode()
+
+    json_template_text = json_template_text.replace("__IGV_SPLICE_BED_FILE__", igv_introns_bed_file)
+
+    ref_annotations_file = os.path.join(ctat_genome_lib, "ref_annot.sorted.bed.gz")
+    json_template_text = json_template_text.replace("__REF_GENE_STRUCTURE_ANNOTATIONS__", ref_annotations_file)
+
+
+    igv_track_config_file = os.path.join(output_prefix + ".igv.tracks")
+
+    with open(igv_track_config_file, 'wt') as ofh:
+        ofh.write(json_template_text)
+
+    return igv_track_config_file
+                                                    
 
 
 if __name__=='__main__':
