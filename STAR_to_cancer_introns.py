@@ -74,7 +74,7 @@ def main():
                                  str(intron.uniq_mapped), str(intron.multi_mapped)]) + "\n")
 
     # annotate for cancer introns.
-    cmd = str(os.path.join(scriptdir, "annotate_cancer_introns.pl") +
+    cmd = str(os.path.join(utildir, "annotate_cancer_introns.pl") +
               " --introns_file {} ".format(introns_output_file) +
               " --ctat_genome_lib {} ".format(ctat_genome_lib) +
               " --intron_col 0 " +

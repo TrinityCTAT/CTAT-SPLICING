@@ -46,6 +46,7 @@ class BEDfile:
         self.all_introns_file = args.all_introns         ## example: ../testing/__expected_output/ctat.introns.b38
         self.cancer_introns_file = args.cancer_introns   ## example:  ../testing/__expected_output/ctat.cancer.introns.b38
         self.genome_lib_dir = args.genome_lib_dir        ## for b38, use: /seq/RNASEQ/__ctat_genome_lib_building/Apr2020/GRCh38_gencode_v22_CTAT_lib_Apr032020.plug-n-play/ctat_genome_lib_build_dir
+        self.output_bed = args.output_bed
 
     def createBedFile(self):
         logger.info(" Creating the BED File.")
@@ -142,15 +143,15 @@ class BEDfile:
         return(self)
     
     def saveBedFile(self):
-        logger.info(" Saveing Bed File.")
-        file = open("Introns.bed", "w") 
-
+        logger.info("Saving Bed File as {}".format(self.output_bed))
+        ofh = open(self.output_bed, "wt") 
+        
         # Convert the bed file pandas Data Frame to a csv string format 
         text = self.bed_file.to_csv(index=False, header=None, sep="\t")
-        file.write(text) # Write to the temporary file 
-        file.close()
-
-
+        ofh.write(text) # Write to the temporary file 
+        ofh.close()
+                    
+                    
 def main():
 
     ## Input Arguments
@@ -161,6 +162,7 @@ def main():
     args_parser.add_argument("--all_introns",    type=str, required=True,  help="all introns file")
     args_parser.add_argument("--cancer_introns", type=str, required=True,  help="cancer introns file.")
     args_parser.add_argument("--genome_lib_dir", type=str, required=True,  help="path to ctat genome lib") 
+    args_parser.add_argument("--output_bed", type=str, required=True, help='output bed filename')
 
     args = args_parser.parse_args()
 
