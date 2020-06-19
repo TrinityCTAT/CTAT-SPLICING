@@ -26,9 +26,12 @@ def split_intron(dt):
 
     return(split1)
 
+
 def combineColumns(df, cols):
     df = df[cols].apply(lambda row: ';'.join(row.values.astype(str)), axis=1)
     return(df)
+
+
 
 class BEDfile:
 
@@ -76,17 +79,18 @@ class BEDfile:
         dt['uniq_mapped_str']  = 'uniquely_mapped=' + dt['uniq_mapped'].astype(str)
         dt['multi_mapped_str'] = 'multi_mapped=' + dt['multi_mapped'].astype(str)
         dt['gene']             = 'gene=' + split_gene[0].astype(str)
+
         dt['viewport']         = df_gene['1_y'] + ":" + df_gene[2].astype(str) + "-" + df_gene[3].astype(str)
+
         # concatenate to make name column
-        name = dt['uniq_mapped_str'] + ";" + dt['multi_mapped_str'] + ";" + dt['gene'] + ";" + dt['viewport']
+        name = dt['uniq_mapped_str'] + ";" + dt['multi_mapped_str'] + ";" + dt['gene']
 
         # insert them into the bed file 
         bed_file.insert(loc = 3, column = "NAME", value = name)
-        bed_file.insert(loc = 4, column = "uniquely_mapped", value = dt['uniq_mapped'])
+        bed_file.insert(loc = 4, column = "total_mapped", value = dt['uniq_mapped'] + dt['multi_mapped'])
         bed_file.insert(loc = 5, column = "strand", value = dt['strand'])
-
+        bed_file = bed_file.assign(viewport="viewport=" + dt['viewport']) 
         
-
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Edit the Cancer introns 
@@ -95,30 +99,42 @@ class BEDfile:
         # covert the dataframe into a series 
         ## The Keys to use, (column names)
         keys = list(cancer_local.columns.values)
-        i1 = bed_file.set_index(keys).index
-        i2 = cancer_local.set_index(keys).index
+        bed_file = bed_file.set_index(keys)
+        i1 = bed_file.index
+        cancer_local = cancer_local.set_index(keys)
+        i2 = cancer_local.index
+        
         # ~ means not in
-        cancer_temp_df = bed_file[i1.isin(i2)] 
+        cancer_temp_df = bed_file.loc[i1[i1.isin(i2)]] 
         temp_df = pd.DataFrame()
-
+        
         # convert NaN'ss into NA's
         cancer_dt = cancer_dt.fillna('NA')
+
         # Add the new columns into the temp dataframe 
         temp_df['NAME'] = cancer_temp_df["NAME"]
         temp_df['TCGA'] = list('TCGA=' + cancer_dt['TCGA_sample_counts'].astype(str))
         temp_df['GTEx'] = list('GTEx=' + cancer_dt['GTEx_sample_counts'].astype(str))
-        temp_df['variant_name'] = list('name=' + cancer_dt['variant_name'].astype(str))
-        temp_df['display_in_table'] = 'display_in_table=true'
-        # combien the new columns into one, then replace NAME with the newly created column 
-        cols = ["NAME", "TCGA", "GTEx", "variant_name","display_in_table"]
+        temp_df['variant_name'] = list('variant_name=' + cancer_dt['variant_name'].astype(str))
+        
+        # combine the new columns into one, then replace NAME with the newly created column 
+        cols = ["NAME", "TCGA", "GTEx", "variant_name"]
         replace_NAME = combineColumns(df = temp_df, cols = cols)
         cancer_temp_df = cancer_temp_df.assign(NAME=replace_NAME)
 
 
-        # Now update the existing be file to include the new NAME chanes for the cancer introns 
+        # Now update the existing be file to include the new NAME changes for the cancer introns 
         bed_file.update(cancer_temp_df)
 
-
+        # tack on viewport to just the cancer intron names:
+        cancer_temp_df = bed_file.loc[i1[i1.isin(i2)]]
+        cols = ["NAME", "viewport"]
+        replace_NAME = combineColumns(df = cancer_temp_df, cols = cols)
+        cancer_temp_df = cancer_temp_df.assign(NAME=replace_NAME) 
+        bed_file.update(cancer_temp_df)
+        bed_file = bed_file.drop('viewport', axis=1)
+        bed_file = bed_file.reset_index()
+        
         # Sort the BED File 
         bed_file.sort_values(by=['START','END'], inplace=True, ascending=True)
 
