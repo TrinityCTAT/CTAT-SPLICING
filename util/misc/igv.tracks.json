@@ -13,6 +13,16 @@
     "height": 300,
     "url": "__REF_GENE_STRUCTURE_ANNOTATIONS__",
     "visibilityWindow": 1000000
+  },
+  {
+    "name": "RNA-seq",
+    "type": "alignments",
+    "format": "bam",
+    "displayMode": "SQUISHED",
+    "height": 300,
+    "url": "__RNASEQ_ALIGNMENTS__",
+    "visibilityWindow": 1000000
   }
+
 ]
 

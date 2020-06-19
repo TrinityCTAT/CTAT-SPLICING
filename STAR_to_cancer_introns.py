@@ -129,6 +129,9 @@ def write_igv_config(output_prefix, ctat_genome_lib, igv_introns_bed_file, bam_f
     json_template_text = json_template_text.replace("__REF_GENE_STRUCTURE_ANNOTATIONS__", ref_annotations_file)
 
 
+    json_template_text = json_template_text.replace("__RNASEQ_ALIGNMENTS__", bam_file)
+
+
     igv_track_config_file = os.path.join(output_prefix + ".igv.tracks")
 
     with open(igv_track_config_file, 'wt') as ofh:
