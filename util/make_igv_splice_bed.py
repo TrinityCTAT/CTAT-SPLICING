@@ -7,79 +7,153 @@ import json
 import math
 import argparse
 import pandas as pd
+import logging
+logging.basicConfig(level=logging.INFO, 
+                    format='%(asctime)s : %(levelname)s : %(message)s',
+                    datefmt='%H:%M:%S')
+logger = logging.getLogger(__name__)
 
-
-
-def main():
-
-     ## Input Arguments
-    args_parser = argparse.ArgumentParser(
-        description = "Creates the IGV Report for spilce data."
-    )
-
-    args_parser.add_arguments("--all_introns", type=str, required=True, help="all introns file")
-    args_parser.add_argument("--cancer_introns", type=str, required=True,  help="cancer introns file.")
-    args_parser.add_argument("--genome_lib_dir", type=str, requried=True, help="path to ctat genome lib") 
-    
-    args_parsed = args_parser.parse_args()
-
-
-    all_introns_file = args_parsed.all_introns         ## example: ../testing/__expected_output/ctat.introns.b38
-    cancer_introns_file = args_parsed.cancer_introns   ## example:  ../testing/__expected_output/ctat.cancer.introns.b38
-    genome_lib_dir = args_parsed.genome_lib_dir        ## for b38, use: /seq/RNASEQ/__ctat_genome_lib_building/Apr2020/GRCh38_gencode_v22_CTAT_lib_Apr032020.plug-n-play/ctat_genome_lib_build_dir
-
-
-    ## what we want for output is a bed file that:
-    ## -contains a row for each entry of 'all_introns'
-    ## -the cancer introns should contain a bed field entry for 'display_in_table=true;'
-    ## -the cancer introns also will contain additional annotation info for TCGA and GTEx occurrence info as provided in the cancer.introns file.
-
-    ## an example entry might look like this:
-    # (column headers provided below only here for ease of reference below)
-    #   chr     start           end             annotations       score    strand
-    ##  chr7    55019365        55155829        uniquely_mapped=74;multi_mapped=0;gene=EGFR;viewport=chr7:55013358-55207969;TCGA=GBM:28:16.57,LGG:9:1.73,STAD:1:0.25,HNSC:1:0.18;GTEx=NA;variant_name=EGFRvIII;display_in_table=true     74      +
-    #
-    # The 'score' can be computed as uniquely_mapped + multi_mapped
-    #
-    # The viewport annotation attribute can be computed based on finding the range for the gene span of the gene (or genes) which you can access from file: ${CTAT_GENOME_LIB}/ref_annot.gtf.gene_spans
-    # Note, it might be easiest to cross-reference the 'all_introns' file with this ref_annot.gtf.gene_spans  file to get the viewport coordinates because of the gene identifier formatting. The ENSG-style gene ids would be best to cross-reference here.
-    #
-    # Again, all 'all_introns' entries end up in the BED file, but only the 'cancer_introns' have the annotations: TCGA, GTEx, variant_name, and display_in_table.
-    
-    
-
-    ## earlier code as starting point below:
-    
-    
-    # Read in the cander intron data 
-    dt = pd.read_table(cancer_introns_file)
-
+def split_intron(dt):
     # split chr:start:stop into seperate columns 
     split1 = dt["intron"].str.split(":",n = 1, expand = True) 
     split2 = split1[1].str.split("-",n = 1, expand = True) 
     split1["START"] = pd.to_numeric(split2[0]) -1 
     split1["END"] = pd.to_numeric(split2[1])
     split1.drop(columns =[1], inplace = True) 
+    split1.rename({0: 'CHR'}, axis=1, inplace=True)
+    split1["CHR"] = split1["CHR"].apply(str)
+    split1.set_index(['CHR', 'START', 'END'])
 
-    # Add the name column to the data table 
-    bed_file = split1
-    # Make the name column for the bed file 
-    dt['uniq_mapped_str'] = 'uniquely_mapped=' + dt['uniq_mapped'].astype(str)
-    dt['multi_mapped_str'] = 'multi_mapped=' + dt['multi_mapped'].astype(str)
-    name = dt['uniq_mapped_str'] + ";" + dt['multi_mapped_str']
+    return(split1)
 
-    # insert them into the bed file 
-    bed_file.insert(loc = 3, column = "NAME", value = name)
-    bed_file.insert(loc = 4, column = "uniquely_mapped", value = dt['uniq_mapped'])
-    bed_file.insert(loc = 5, column = "strand", value = dt['strand'])
+def combineColumns(df, cols):
+    df = df[cols].apply(lambda row: ';'.join(row.values.astype(str)), axis=1)
+    return(df)
 
-    # Sort the BED File 
-    bed_file.sort_values(by=['START','END'], inplace=True, ascending=True)
+class BEDfile:
 
-    self.bed_file = bed_file
+    def __init__(self, args):
 
-    return(self)
+        import warnings
+        self.args = args
 
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        # Seperate Arguments and add to Object 
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        self.all_introns_file = args.all_introns         ## example: ../testing/__expected_output/ctat.introns.b38
+        self.cancer_introns_file = args.cancer_introns   ## example:  ../testing/__expected_output/ctat.cancer.introns.b38
+        self.genome_lib_dir = args.genome_lib_dir        ## for b38, use: /seq/RNASEQ/__ctat_genome_lib_building/Apr2020/GRCh38_gencode_v22_CTAT_lib_Apr032020.plug-n-play/ctat_genome_lib_build_dir
+
+    def createBedFile(self):
+        logger.info(" Creating the BED File.")
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        # Read in the intron and cander intron data 
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        dt = pd.read_table(self.all_introns_file)
+        cancer_dt = pd.read_table(self.cancer_introns_file)
+
+        # set up the bed file 
+        bed_file = split_intron(dt)
+        cancer_local = split_intron(cancer_dt)
+        # uniquely_mapped=74;multi_mapped=0;gene=EGFR;viewport=chr7:55013358-55207969;TCGA=GBM:28:16.57,LGG:9:1.73,STAD:1:0.25,HNSC:1:0.18;GTEx=NA;variant_name=EGFRvIII;display_in_table=true     74      +
+
+        #~~~~~~~~~~~~~~~~~~~~~
+        # Create the viewport
+        #~~~~~~~~~~~~~~~~~~~~~
+        gene_spans = os.path.join(self.genome_lib_dir, "ref_annot.gtf.gene_spans")
+        gene_spans_df = pd.read_table(gene_spans, header = None)
+        split_gene = dt['genes'].str.split("^",n = 1, expand = True) 
+
+        df_gene = split_gene.merge(gene_spans_df, 
+                            how = "left", 
+                            left_on = 1, 
+                            right_on = 0)
+
+        #~~~~~~~~~~~~~~~~~~~~~
+        # Make the name column for the bed file 
+        # Put the columns together
+        #~~~~~~~~~~~~~~~~~~~~~
+        dt['uniq_mapped_str']  = 'uniquely_mapped=' + dt['uniq_mapped'].astype(str)
+        dt['multi_mapped_str'] = 'multi_mapped=' + dt['multi_mapped'].astype(str)
+        dt['gene']             = 'gene=' + split_gene[0].astype(str)
+        dt['viewport']         = df_gene['1_y'] + ":" + df_gene[2].astype(str) + "-" + df_gene[3].astype(str)
+        # concatenate to make name column
+        name = dt['uniq_mapped_str'] + ";" + dt['multi_mapped_str'] + ";" + dt['gene'] + ";" + dt['viewport']
+
+        # insert them into the bed file 
+        bed_file.insert(loc = 3, column = "NAME", value = name)
+        bed_file.insert(loc = 4, column = "uniquely_mapped", value = dt['uniq_mapped'])
+        bed_file.insert(loc = 5, column = "strand", value = dt['strand'])
+
+        
+
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        # Edit the Cancer introns 
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        # covert the dataframe into a series 
+        ## The Keys to use, (column names)
+        keys = list(cancer_local.columns.values)
+        i1 = bed_file.set_index(keys).index
+        i2 = cancer_local.set_index(keys).index
+        # ~ means not in
+        cancer_temp_df = bed_file[i1.isin(i2)] 
+        temp_df = pd.DataFrame()
+
+        # convert NaN'ss into NA's
+        cancer_dt = cancer_dt.fillna('NA')
+        # Add the new columns into the temp dataframe 
+        temp_df['NAME'] = cancer_temp_df["NAME"]
+        temp_df['TCGA'] = list('TCGA=' + cancer_dt['TCGA_sample_counts'].astype(str))
+        temp_df['GTEx'] = list('GTEx=' + cancer_dt['GTEx_sample_counts'].astype(str))
+        temp_df['variant_name'] = list('name=' + cancer_dt['variant_name'].astype(str))
+        temp_df['display_in_table'] = 'display_in_table=true'
+        # combien the new columns into one, then replace NAME with the newly created column 
+        cols = ["NAME", "TCGA", "GTEx", "variant_name","display_in_table"]
+        replace_NAME = combineColumns(df = temp_df, cols = cols)
+        cancer_temp_df = cancer_temp_df.assign(NAME=replace_NAME)
+
+
+        # Now update the existing be file to include the new NAME chanes for the cancer introns 
+        bed_file.update(cancer_temp_df)
+
+
+        # Sort the BED File 
+        bed_file.sort_values(by=['START','END'], inplace=True, ascending=True)
+
+        self.bed_file = bed_file
+        return(self)
+    
+    def saveBedFile(self):
+        logger.info(" Saveing Bed File.")
+        file = open("Introns.bed", "w") 
+
+        # Convert the bed file pandas Data Frame to a csv string format 
+        text = self.bed_file.to_csv(index=False, header=None, sep="\t")
+        file.write(text) # Write to the temporary file 
+        file.close()
+
+
+def main():
+
+    ## Input Arguments
+    args_parser = argparse.ArgumentParser(
+        description = "Creates the IGV Report for spilce data."
+    )
+
+    args_parser.add_argument("--all_introns",    type=str, required=True,  help="all introns file")
+    args_parser.add_argument("--cancer_introns", type=str, required=True,  help="cancer introns file.")
+    args_parser.add_argument("--genome_lib_dir", type=str, required=True,  help="path to ctat genome lib") 
+
+    args = args_parser.parse_args()
+
+    # Create teh object
+    bed_file = BEDfile(args)
+    # Create the bed file 
+    bed_file = bed_file.createBedFile()
+    # Save the Bed file 
+    bed_file.saveBedFile()
 
 
 if __name__=='__main__':
