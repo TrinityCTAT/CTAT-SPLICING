@@ -3,6 +3,7 @@
     "name": "junctions",
     "type": "spliceJunctions",
     "format": "bed",
+    "order" : 1,
     "url": "__IGV_SPLICE_BED_FILE__"
   },
   {
@@ -12,15 +13,19 @@
     "displayMode": "EXPANDED",
     "height": 300,
     "url": "__REF_GENE_STRUCTURE_ANNOTATIONS__",
+    "order" : 5,
     "visibilityWindow": 1000000
   },
   {
     "name": "RNA-seq",
-    "type": "alignments",
+    "type": "alignment",
     "format": "bam",
+    "showMismatches": false,
+    "alignmentRowHeight": 6,
     "displayMode": "SQUISHED",
     "height": 300,
     "url": "__RNASEQ_ALIGNMENTS__",
+    "order": 10,
     "visibilityWindow": 1000000
   }
 

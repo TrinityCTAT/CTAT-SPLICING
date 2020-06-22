@@ -56,6 +56,9 @@ class BEDfile:
         dt = pd.read_table(self.all_introns_file)
         cancer_dt = pd.read_table(self.cancer_introns_file)
 
+        ## limit dt to those genes in the cancer_dt file
+        dt = dt[ dt['genes'].isin(cancer_dt['genes']) ]
+        
         # set up the bed file 
         bed_file = split_intron(dt)
         cancer_local = split_intron(cancer_dt)
