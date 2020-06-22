@@ -5,10 +5,11 @@ import argparse
 import subprocess
 
 
-scriptdir=os.path.dirname(__file__)
+scriptdir=os.path.dirname(os.path.abspath(__file__))
 utildir=scriptdir + "/util"
 sys.path.append(utildir)
 import intron_occurrence_capture as ioc
+bindir=scriptdir + "/BIN"
 
 
 
@@ -109,7 +110,7 @@ def main():
                   " --type junction " +
                   " --output {}.ctat-splicing.igv.html ".format(output_prefix) +
                   " --track-config {} ".format(igv_tracks_config_file) +
-                  " --info-columns TCGA GTEx variant_name " +
+                  " --info-columns gene TCGA GTEx variant_name " +
                   " --title 'CTAT_Splicing: my sample name' ")
         
         subprocess.check_call(cmd, shell=True)
@@ -129,7 +130,13 @@ def write_igv_config(output_prefix, ctat_genome_lib, igv_introns_bed_file, bam_f
     json_template_text = json_template_text.replace("__REF_GENE_STRUCTURE_ANNOTATIONS__", ref_annotations_file)
 
 
-    json_template_text = json_template_text.replace("__RNASEQ_ALIGNMENTS__", bam_file)
+    gene_reads_bam_file, cancer_intron_reads_bam_file = get_gene_and_cancer_intron_reads_bam_files(output_prefix,
+                                                                                                   igv_introns_bed_file,
+                                                                                                   bam_file)
+        
+    
+    json_template_text = json_template_text.replace("__RNASEQ_GENE_ALIGNMENTS__", gene_reads_bam_file)
+    json_template_text = json_template_text.replace("__RNASEQ_CANCER_INTRON_ALIGNMENTS__", cancer_intron_reads_bam_file)
 
 
     igv_track_config_file = os.path.join(output_prefix + ".igv.tracks")
@@ -139,6 +146,59 @@ def write_igv_config(output_prefix, ctat_genome_lib, igv_introns_bed_file, bam_f
 
     return igv_track_config_file
                                                     
+
+
+def get_gene_and_cancer_intron_reads_bam_files(output_prefix, igv_introns_bed_file, bam_file):
+
+    # extract the aligned reads
+    
+    cmd = str(os.path.join(utildir, "igv_read_alignment_extractor.py") +
+              " --igv_introns_bed {} ".format(igv_introns_bed_file) +
+              " --bam {} ".format(bam_file) +
+              " --output_prefix {} ".format(output_prefix) )
+
+    subprocess.check_call(cmd, shell=True)
+
+    gene_reads_bam = output_prefix + ".gene_reads.bam"
+    cancer_intron_reads_bam = output_prefix + ".cancer_intron_reads.bam"
+
+    max_coverage = 50
+    ## downsample the reads
+    
+    gene_reads_bam_sifted = sift_bam(gene_reads_bam, max_coverage)
+
+    index_bam(gene_reads_bam_sifted)
+    index_bam(cancer_intron_reads_bam)
+    
+
+    return(gene_reads_bam_sifted, cancer_intron_reads_bam)
+
+
+
+
+def sift_bam(bam_file, max_coverage):
+
+    sifted_bam_file, count = re.subn(".bam$", ".sifted.bam", bam_file)
+    
+        
+    bamsifter_prog = os.path.join(bindir, "bamsifter")
+    cmd = str(bamsifter_prog +
+              " -c {} ".format(max_coverage) +
+              " -i 50 " +
+              " -o {} ".format(sifted_bam_file) +
+              " {} ".format(bam_file) 
+              )
+    
+    subprocess.check_call(cmd, shell=True)
+
+    return sifted_bam_file
+
+
+def index_bam(bam_file):
+
+    subprocess.check_call("samtools index {} ".format(bam_file), shell=True)
+    
+
 
 
 if __name__=='__main__':

@@ -24,7 +24,20 @@
     "alignmentRowHeight": 6,
     "displayMode": "SQUISHED",
     "height": 300,
-    "url": "__RNASEQ_ALIGNMENTS__",
+    "url": "__RNASEQ_CANCER_INTRON_ALIGNMENTS__",
+    "order": 10,
+    "visibilityWindow": 1000000
+  },
+
+  {
+    "name": "RNA-seq",
+    "type": "alignment",
+    "format": "bam",
+    "showMismatches": false,
+    "alignmentRowHeight": 10,
+    "displayMode": "SQUISHED",
+    "height": 300,
+    "url": "__RNASEQ_GENE_ALIGNMENTS__",
     "order": 10,
     "visibilityWindow": 1000000
   }
