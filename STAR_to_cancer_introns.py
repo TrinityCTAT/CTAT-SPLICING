@@ -3,7 +3,12 @@
 import sys, os, re
 import argparse
 import subprocess
+import logging
 
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s : %(levelname)s : %(message)s',
+                datefmt='%H:%M:%S')
+logger = logging.getLogger(__name__)
 
 scriptdir=os.path.dirname(os.path.abspath(__file__))
 utildir=scriptdir + "/util"
@@ -22,7 +27,8 @@ def main():
     parser.add_argument("--SJ_tab_file", dest="SJ_tab_file", type=str, required=True, help="STAR SJ.out.tab file")
     parser.add_argument("--chimJ_file", dest="chimJ_file", type=str, required=False, default=None, help="STAR Chimeric.out.junction file")
     parser.add_argument("--output_prefix", dest="output_prefix", type=str, required=True, help="prefix for all output files")
-
+    parser.add_argument("--min_total_reads", dest="min_total_reads", type=int, required=False, default=5, help="minimum reads supporting cancer intron")
+    
     parser.add_argument("--vis", action='store_true', default=False, help="Generate igv html ctat splicing visualization (requires --bam_file to be set)")
     parser.add_argument("--bam_file", dest="bam_file", type=str, required=False, default=None, help="STAR generated BAM file")
         
@@ -38,6 +44,8 @@ def main():
     output_prefix = args.output_prefix
     bam_file = args.bam_file
     VIS_flag = args.vis
+    min_total_reads = args.min_total_reads
+    
 
     if VIS_flag and not bam_file:
         raise RuntimeError("Error, if --vis, must specify --bam_file ")
@@ -75,16 +83,26 @@ def main():
                                  str(intron.uniq_mapped), str(intron.multi_mapped)]) + "\n")
 
     # annotate for cancer introns.
-    cancer_introns_file = output_prefix + ".cancer.introns"
+    cancer_introns_file_prelim = output_prefix + ".cancer.introns.prelim"
     cmd = str(os.path.join(utildir, "annotate_cancer_introns.pl") +
               " --introns_file {} ".format(introns_output_file) +
               " --ctat_genome_lib {} ".format(ctat_genome_lib) +
               " --intron_col 0 " +
-              " > {} ".format(cancer_introns_file) )
+              " > {} ".format(cancer_introns_file_prelim) )
     
     subprocess.check_call(cmd, shell=True)
-    
 
+    # filter for min support
+    cancer_introns_file = output_prefix + ".cancer.introns"
+    cmd = str(os.path.join(utildir, "filter_by_min_total_reads.py") +
+                           " --cancer_intron_candidates {}".format(cancer_introns_file_prelim) +
+                           " --min_total_reads {} ".format(min_total_reads) +
+                           " > {} ".format(cancer_introns_file))
+
+    subprocess.check_call(cmd, shell=True)
+
+    logger.info("Created output: {} ".format(cancer_introns_file))
+    
 
     if VIS_flag:
         
@@ -96,6 +114,7 @@ def main():
                   " --genome_lib_dir {} ".format(ctat_genome_lib) +
                   " --output_bed {} ".format(igv_introns_bed_file) )
 
+        print(cmd, file=sys.stderr)
         subprocess.check_call(cmd, shell=True)
         
 
@@ -110,11 +129,12 @@ def main():
                   " --type junction " +
                   " --output {}.ctat-splicing.igv.html ".format(output_prefix) +
                   " --track-config {} ".format(igv_tracks_config_file) +
-                  " --info-columns gene TCGA GTEx variant_name " +
+                  " --info-columns gene variant_name uniquely_mapped multi_mapped TCGA GTEx " +
                   " --title 'CTAT_Splicing: my sample name' ")
         
         subprocess.check_call(cmd, shell=True)
-        
+
+        logger.info("Created html report")
         
     sys.exit(0)
 
@@ -160,13 +180,18 @@ def get_gene_and_cancer_intron_reads_bam_files(output_prefix, igv_introns_bed_fi
     subprocess.check_call(cmd, shell=True)
 
     gene_reads_bam = output_prefix + ".gene_reads.bam"
-    cancer_intron_reads_bam = output_prefix + ".cancer_intron_reads.bam"
+    cancer_intron_reads_tmp_bam = output_prefix + ".cancer_intron_reads.bam"
 
-    max_coverage = 50
-    ## downsample the reads
+    cancer_intron_reads_bam = output_prefix + ".cancer_intron_reads.sorted.bam"
+    subprocess.check_call("samtools sort -o {} {}".format(cancer_intron_reads_bam, cancer_intron_reads_tmp_bam), shell=True)
     
+    
+    ## downsample the reads
+    max_coverage = 50
     gene_reads_bam_sifted = sift_bam(gene_reads_bam, max_coverage)
 
+
+    ## index final bams
     index_bam(gene_reads_bam_sifted)
     index_bam(cancer_intron_reads_bam)
     
@@ -178,19 +203,29 @@ def get_gene_and_cancer_intron_reads_bam_files(output_prefix, igv_introns_bed_fi
 
 def sift_bam(bam_file, max_coverage):
 
-    sifted_bam_file, count = re.subn(".bam$", ".sifted.bam", bam_file)
-    
+    sifted_bam_tmp_file, count = re.subn(".bam$", ".sifted.bam.tmp", bam_file)
+    if count != 1:
+        raise RuntimeError("Error changing extension of .bam")
         
     bamsifter_prog = os.path.join(bindir, "bamsifter")
     cmd = str(bamsifter_prog +
               " -c {} ".format(max_coverage) +
               " -i 50 " +
-              " -o {} ".format(sifted_bam_file) +
+              " -o {} ".format(sifted_bam_tmp_file) +
+              " --keep_secondary " +
               " {} ".format(bam_file) 
               )
     
     subprocess.check_call(cmd, shell=True)
 
+    sifted_bam_file, count = re.subn(".bam$", ".sifted.bam", bam_file)
+    if count != 1:
+        raise RuntimeError("Error changing extension of .bam")
+
+    subprocess.check_call("samtools sort -o {} {}".format(sifted_bam_file, sifted_bam_tmp_file), shell=True)
+
+    os.remove(sifted_bam_tmp_file)
+    
     return sifted_bam_file
 
 

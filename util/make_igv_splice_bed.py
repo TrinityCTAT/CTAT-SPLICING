@@ -63,19 +63,22 @@ class BEDfile:
         bed_file = split_intron(dt)
         cancer_local = split_intron(cancer_dt)
         # uniquely_mapped=74;multi_mapped=0;gene=EGFR;viewport=chr7:55013358-55207969;TCGA=GBM:28:16.57,LGG:9:1.73,STAD:1:0.25,HNSC:1:0.18;GTEx=NA;variant_name=EGFRvIII;display_in_table=true     74      +
-
+        
         #~~~~~~~~~~~~~~~~~~~~~
         # Create the viewport
         #~~~~~~~~~~~~~~~~~~~~~
         gene_spans = os.path.join(self.genome_lib_dir, "ref_annot.gtf.gene_spans")
         gene_spans_df = pd.read_table(gene_spans, header = None)
+        gene_spans_df['lend'] = gene_spans_df[2].astype(int)
+        gene_spans_df['rend'] = gene_spans_df[3].astype(int)
+        
         split_gene = dt['genes'].str.split("^",n = 1, expand = True) 
 
         df_gene = split_gene.merge(gene_spans_df, 
                             how = "left", 
                             left_on = 1, 
                             right_on = 0)
-
+        
         #~~~~~~~~~~~~~~~~~~~~~
         # Make the name column for the bed file 
         # Put the columns together
@@ -83,12 +86,13 @@ class BEDfile:
         dt['uniq_mapped_str']  = 'uniquely_mapped=' + dt['uniq_mapped'].astype(str)
         dt['multi_mapped_str'] = 'multi_mapped=' + dt['multi_mapped'].astype(str)
         dt['gene']             = 'gene=' + split_gene[0].astype(str)
-
-        dt['viewport']         = df_gene['1_y'] + ":" + df_gene[2].astype(str) + "-" + df_gene[3].astype(str)
-
+        
+        viewport = df_gene['1_y'] + ":" + df_gene['lend'].astype(str) + "-" + df_gene['rend'].astype(str)
+        dt['viewport'] = viewport.values
+        
         # concatenate to make name column
         name = dt['uniq_mapped_str'] + ";" + dt['multi_mapped_str'] + ";" + dt['gene']
-
+        
         # insert them into the bed file 
         bed_file.insert(loc = 3, column = "NAME", value = name)
         bed_file.insert(loc = 4, column = "total_mapped", value = dt['uniq_mapped'] + dt['multi_mapped'])
@@ -114,6 +118,10 @@ class BEDfile:
         
         # convert NaN'ss into NA's
         cancer_dt = cancer_dt.fillna('NA')
+        # place commas after spaces for igv
+        cancer_dt['GTEx_sample_counts'] = cancer_dt['GTEx_sample_counts'].str.replace(",", ", ")
+        cancer_dt['TCGA_sample_counts'] = cancer_dt['TCGA_sample_counts'].str.replace(",", ", ")
+
 
         # Add the new columns into the temp dataframe 
         temp_df['NAME'] = cancer_temp_df["NAME"]
@@ -144,6 +152,9 @@ class BEDfile:
 
         self.bed_file = bed_file
         return(self)
+
+
+
     
     def saveBedFile(self):
         logger.info("Saving Bed File as {}".format(self.output_bed))

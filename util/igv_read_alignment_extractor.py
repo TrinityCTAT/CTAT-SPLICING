@@ -47,6 +47,7 @@ def main():
             gene_reads_samfile_obj.write(read)
 
             if read_has_cancer_intron(read, region_chr, cancer_introns):
+                #read.query_name = read.query_name + "-CI"
                 introns_only_samfile_obj.write(read)
 
 
