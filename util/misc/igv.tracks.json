@@ -16,8 +16,9 @@
     "order" : 5,
     "visibilityWindow": 1000000
   },
+
   {
-    "name": "RNA-seq",
+    "name": "evidence",
     "type": "alignment",
     "format": "bam",
     "showMismatches": false,
