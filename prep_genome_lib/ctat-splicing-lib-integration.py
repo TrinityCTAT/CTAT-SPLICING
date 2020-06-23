@@ -18,17 +18,42 @@ UTILDIR = os.path.join(os.path.dirname(__file__), "util")
 def main():
 
     parser = argparse.ArgumentParser()
+    
+    parser.add_argument("--cancer_introns_tsv", dest="cancer_introns_tsv", type=str, required=True,
+                        help="cancer introns database tsv file")
+    
     parser.add_argument("--genome_lib_dir", dest="genome_lib_dir", type=str, required=True,
                         help="CTAT genome lib build dir")
     args=parser.parse_args()
-
+    
     genome_lib_dir = args.genome_lib_dir
-
-
-    ensure_sorted_gene_bed(genome_lib_dir)
-
+    cancer_introns_tsv_file = args.cancer_introns_tsv
 
     
+    ensure_sorted_gene_bed(genome_lib_dir)
+
+    index_cancer_db(cancer_introns_tsv_file, genome_lib_dir)
+
+    logger.info("done")
+
+    sys.exit(0)
+
+
+
+def index_cancer_db(cancer_introns_tsv_file, genome_lib_dir):
+
+    logger.info("indexing cancer introns database")
+
+    cmd = str(os.path.join(UTILDIR, "index_cancer_introns_ctat_genome_db.pl") +
+              " --cancer_introns_tsv {} ".format(cancer_introns_tsv_file) +
+              " --ctat_genome_lib {} ".format(genome_lib_dir) )
+
+    subprocess.check_call(cmd, shell=True)
+
+    return
+
+
+
 
 def ensure_sorted_gene_bed(genome_lib_dir):
 
@@ -45,6 +70,7 @@ def ensure_sorted_gene_bed(genome_lib_dir):
                   " " + os.path.join(genome_lib_dir, "ref_annot.gtf") +
                   " > {}".format(refGene_bed_file) )
         subprocess.check_call(cmd, shell=True)
+        
 
         cmd = "sort -k 1,1 -k2,2g -k3,3g < {} > {}".format(refGene_bed_file, refGene_sorted_bed_file)
         subprocess.check_call(cmd, shell=True)
