@@ -126,7 +126,7 @@ def write_igv_config(output_prefix, ctat_genome_lib, igv_introns_bed_file, bam_f
 
     json_template_text = json_template_text.replace("__IGV_SPLICE_BED_FILE__", igv_introns_bed_file)
 
-    ref_annotations_file = os.path.join(ctat_genome_lib, "ref_annot.sorted.bed.gz")
+    ref_annotations_file = os.path.join(ctat_genome_lib, "refGene.sort.bed.gz")
     json_template_text = json_template_text.replace("__REF_GENE_STRUCTURE_ANNOTATIONS__", ref_annotations_file)
 
 
