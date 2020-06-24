@@ -4,7 +4,13 @@ import sys, os, re
 import pysam
 from collections import defaultdict
 import argparse
+import logging
+import subprocess
 
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s : %(levelname)s : %(message)s',
+                    datefmt='%H:%M:%S')
+logger = logging.getLogger(__name__)
 
 
 
@@ -25,6 +31,24 @@ def main():
     regions_to_cancer_introns = parse_cancer_intron_regions(igv_introns_bed_file)
 
     samfile = pysam.AlignmentFile(bam_file, "rb")
+    
+    ## ensure the file is sorted.
+    if not is_coordinate_sorted_bam(samfile):
+        new_bam_filename = bam_file + ".csorted.bam"
+        logger.info("-{} is not coordinate sorted.".format(bam_file))
+        if not os.path.exists(new_bam_filename):
+            logger.info("-sorting {} as {}".format(bam_file, new_bam_filename))
+            subprocess.check_call("samtools sort -o {} {}".format(new_bam_filename, bam_file), shell=True)
+            subprocess.check_call("samtools index {}".format(new_bam_filename), shell=True)
+        
+        # now replace it
+        bam_file = new_bam_filename
+        samfile = pysam.AlignmentFile(bam_file, "rb")
+        if not is_coordinate_sorted_bam(samfile):
+            raise RuntimeError("Error, tried making coordinate sorted file as {}, but still not registering as coordinate-sorted".format(bam_file))
+        else:
+            logger.info("{} now registers as coordinate sorted".format(bam_file))
+    
     
     introns_only_samfile_name = output_prefix + ".cancer_intron_reads.bam"
     introns_only_samfile_obj = pysam.AlignmentFile(introns_only_samfile_name, 'wb', template=samfile)
@@ -96,8 +120,18 @@ def parse_cancer_intron_regions(igv_introns_bed_filename):
     return regions_to_cancer_introns
 
 
+def is_coordinate_sorted_bam(samfile):
 
-        
+    # as per: https://www.programcreek.com/python/example/90607/pysam.sort
+
+    try:
+        samfile.header['HD']['SO']
+    except KeyError:
+        return False
+
+    return True
+
+
 
 if __name__ == "__main__":
     main()
