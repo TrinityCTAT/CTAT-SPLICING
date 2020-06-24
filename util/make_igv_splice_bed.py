@@ -142,8 +142,9 @@ class BEDfile:
         bed_file = bed_file.reset_index()
         
         # Sort the BED File 
-        bed_file.sort_values(by=['START','END'], inplace=True, ascending=True)
-
+        #bed_file.sort_values(by=['START','END'], inplace=True, ascending=True)
+        bed_file.sort_values('total_mapped', inplace=True, ascending=False)
+        
         self.bed_file = bed_file
         return(self)
 
