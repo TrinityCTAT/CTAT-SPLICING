@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
 
-import os
-import sys
+import os, sys, re
 import json
 import math
 import argparse
@@ -69,15 +68,10 @@ class BEDfile:
         #~~~~~~~~~~~~~~~~~~~~~
         gene_spans = os.path.join(self.genome_lib_dir, "ref_annot.gtf.gene_spans")
         gene_spans_df = pd.read_table(gene_spans, header = None)
-        gene_spans_df['lend'] = gene_spans_df[2].astype(int)
-        gene_spans_df['rend'] = gene_spans_df[3].astype(int)
-        
+
         split_gene = dt['genes'].str.split("^",n = 1, expand = True) 
 
-        df_gene = split_gene.merge(gene_spans_df, 
-                            how = "left", 
-                            left_on = 1, 
-                            right_on = 0)
+        viewport = get_viewport_ranges(dt, gene_spans_df) 
         
         #~~~~~~~~~~~~~~~~~~~~~
         # Make the name column for the bed file 
@@ -87,7 +81,7 @@ class BEDfile:
         dt['multi_mapped_str'] = 'multi_mapped=' + dt['multi_mapped'].astype(str)
         dt['gene']             = 'gene=' + split_gene[0].astype(str)
         
-        viewport = df_gene['1_y'] + ":" + df_gene['lend'].astype(str) + "-" + df_gene['rend'].astype(str)
+        
         dt['viewport'] = viewport.values
         
         # concatenate to make name column
@@ -115,7 +109,7 @@ class BEDfile:
         # ~ means not in
         cancer_temp_df = bed_file.loc[i1[i1.isin(i2)]] 
         temp_df = pd.DataFrame()
-        
+
         # convert NaN'ss into NA's
         cancer_dt = cancer_dt.fillna('NA')
         # place commas after spaces for igv
@@ -165,6 +159,59 @@ class BEDfile:
         ofh.write(text) # Write to the temporary file 
         ofh.close()
                     
+    
+def get_viewport_ranges(dt, gene_spans_df):
+
+    dt_genes = dt['genes']
+
+    gene_list_to_viewport_memoize = dict()
+
+    def construct_viewport(genes):
+
+        if genes in gene_list_to_viewport_memoize:
+            ## shortcut in case weve already processed this gene list
+            return gene_list_to_viewport_memoize[genes]
+        
+        lend_range = list()
+        rend_range = list()
+        
+        chromosome = None
+        genelist = re.split("--|,", genes)
+        
+        for gene in genelist:
+            (sym, ensg) = gene.split("^")
+    
+            # look up coordinates based on ensg id
+            gene_coord_info = gene_spans_df[ gene_spans_df[0] == ensg ]
+
+            chr = gene_coord_info.iloc[0,1]
+            lend = gene_coord_info.iloc[0,2]
+            rend = gene_coord_info.iloc[0,3]
+
+            if chromosome is not None:
+                assert(chr == chromosome)
+
+            chromosome = chr
+            lend_range.append(lend)
+            rend_range.append(rend)
+
+        lend_range = sorted(lend_range)
+        rend_range = sorted(rend_range)
+
+        min_lend = lend_range[0]
+        max_rend = rend_range[len(rend_range)-1]
+
+        viewport_str = "{}:{}-{}".format(chromosome, min_lend, max_rend)
+
+        gene_list_to_viewport_memoize[genes] = viewport_str
+        
+        return viewport_str
+
+
+    viewport = dt_genes.apply(lambda x: construct_viewport(x))
+    
+    return viewport
+
                     
 def main():
 

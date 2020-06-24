@@ -11,6 +11,10 @@ logging.basicConfig(level=logging.INFO,
 logger = logging.getLogger(__name__)
 
 scriptdir=os.path.dirname(os.path.abspath(__file__))
+
+sys.path.insert(0, os.path.join(scriptdir, "PyLib"))
+from Pipeliner import *
+
 utildir=scriptdir + "/util"
 sys.path.append(utildir)
 import intron_occurrence_capture as ioc
@@ -55,33 +59,48 @@ def main():
         raise RuntimeError("Error, cannot locate expected splice junction tab file: {} ".format(SJ_tab_file))
 
 
-    targets_list_file = os.path.join(ctat_genome_lib, "ref_annot.gtf.mini.sortu")
-    chr_intron_bounds = ioc.populate_intron_bounds(targets_list_file)
-    introns_dict = ioc.map_introns_from_splice_tab(SJ_tab_file, chr_intron_bounds)
+    chckpts_dir = output_prefix + ".chckpts"
+    if not os.path.exists(chckpts_dir):
+        os.makedirs(chckpts_dir)
 
-    if chimJ_file is not None:
-        if not os.path.exists(chimJ_file):
-            raise RuntimeError("Error, cannot locate expected chimeric Junctiom out file: {} ".format(chimJ_file))
-        
-        # must make splice file:
-        chimJ_introns_file = output_prefix + "." + os.path.basename(chimJ_file) + ".introns.tmp"
-        cmd = str(os.path.join(utildir, "STAR_chimeric_junctions_to_introns.pl") +
-                  " -J {} > {}".format(chimJ_file, chimJ_introns_file))
-        subprocess.check_call(cmd, shell=True)
-        
-        introns_dict = ioc.supplement_introns_from_chimeric_junctions_file(chimJ_introns_file, introns_dict, chr_intron_bounds)
+    pipeliner = Pipeliner(chckpts_dir)
 
     introns_output_file = output_prefix + ".introns"
-    with open(introns_output_file, 'wt') as ofh:
-        # write header
-        ofh.write("\t".join(["intron", "strand", "genes", "uniq_mapped", "multi_mapped"]) + "\n")
-        
-        for intron in introns_dict.values():
-            ofh.write("\t".join(["{}:{}-{}".format(intron.chromosome, intron.lend, intron.rend),
-                                 intron.strand,
-                                 intron.genes,
-                                 str(intron.uniq_mapped), str(intron.multi_mapped)]) + "\n")
+    introns_output_file_chckpt = os.path.join(chckpts_dir, "introns.ok")
 
+    if not os.path.exists(introns_output_file_chckpt):
+
+        targets_list_file = os.path.join(ctat_genome_lib, "ref_annot.gtf.mini.sortu")
+        chr_intron_bounds = ioc.populate_intron_bounds(targets_list_file)
+        introns_dict = ioc.map_introns_from_splice_tab(SJ_tab_file, chr_intron_bounds)
+
+        if chimJ_file is not None:
+            if not os.path.exists(chimJ_file):
+                raise RuntimeError("Error, cannot locate expected chimeric Junctiom out file: {} ".format(chimJ_file))
+
+            # must make splice file:
+            chimJ_introns_file = output_prefix + "." + os.path.basename(chimJ_file) + ".introns.tmp"
+            cmd = str(os.path.join(utildir, "STAR_chimeric_junctions_to_introns.pl") +
+                      " -J {} > {}".format(chimJ_file, chimJ_introns_file))
+            subprocess.check_call(cmd, shell=True)
+
+            introns_dict = ioc.supplement_introns_from_chimeric_junctions_file(chimJ_introns_file, introns_dict, chr_intron_bounds)
+
+
+        with open(introns_output_file, 'wt') as ofh:
+            # write header
+            ofh.write("\t".join(["intron", "strand", "genes", "uniq_mapped", "multi_mapped"]) + "\n")
+
+            for intron in introns_dict.values():
+                ofh.write("\t".join(["{}:{}-{}".format(intron.chromosome, intron.lend, intron.rend),
+                                     intron.strand,
+                                     intron.genes,
+                                     str(intron.uniq_mapped), str(intron.multi_mapped)]) + "\n")
+
+        # done, add checkpoint
+        subprocess.check_call("touch {}".format(introns_output_file_chckpt), shell=True)
+    
+    
     # annotate for cancer introns.
     cancer_introns_file_prelim = output_prefix + ".cancer.introns.prelim"
     cmd = str(os.path.join(utildir, "annotate_cancer_introns.pl") +
@@ -89,8 +108,9 @@ def main():
               " --ctat_genome_lib {} ".format(ctat_genome_lib) +
               " --intron_col 0 " +
               " > {} ".format(cancer_introns_file_prelim) )
+
+    pipeliner.add_commands([Command(cmd, "prelim_introns.ok")])
     
-    subprocess.check_call(cmd, shell=True)
 
     # filter for min support
     cancer_introns_file = output_prefix + ".cancer.introns"
@@ -99,9 +119,10 @@ def main():
                            " --min_total_reads {} ".format(min_total_reads) +
                            " > {} ".format(cancer_introns_file))
 
-    subprocess.check_call(cmd, shell=True)
+    pipeliner.add_commands([Command(cmd, "introns_filtered.ok")])
 
-    logger.info("Created output: {} ".format(cancer_introns_file))
+    pipeliner.run()
+    
     
 
     if VIS_flag:
@@ -114,9 +135,9 @@ def main():
                   " --genome_lib_dir {} ".format(ctat_genome_lib) +
                   " --output_bed {} ".format(igv_introns_bed_file) )
 
-        print(cmd, file=sys.stderr)
-        subprocess.check_call(cmd, shell=True)
         
+        pipeliner.add_commands([Command(cmd, "intron_igv_bed.ok")])
+        pipeliner.run()
 
         igv_tracks_config_file = write_igv_config(output_prefix, ctat_genome_lib,
                                                   igv_introns_bed_file, bam_file,
@@ -132,10 +153,13 @@ def main():
                   " --info-columns gene variant_name uniquely_mapped multi_mapped TCGA GTEx " +
                   " --title 'CTAT_Splicing: my sample name' ")
         
-        subprocess.check_call(cmd, shell=True)
-
-        logger.info("Created html report")
+        pipeliner.add_commands([Command(cmd, "igv_create_html.ok")])
+        pipeliner.run()
         
+
+
+    logger.info("done.")
+    
     sys.exit(0)
 
 
@@ -179,11 +203,14 @@ def get_gene_and_cancer_intron_reads_bam_files(output_prefix, igv_introns_bed_fi
 
     subprocess.check_call(cmd, shell=True)
 
-    gene_reads_bam = output_prefix + ".gene_reads.bam"
+    gene_reads_tmp_bam = output_prefix + ".gene_reads.bam"
     cancer_intron_reads_tmp_bam = output_prefix + ".cancer_intron_reads.bam"
 
     cancer_intron_reads_bam = output_prefix + ".cancer_intron_reads.sorted.bam"
     subprocess.check_call("samtools sort -o {} {}".format(cancer_intron_reads_bam, cancer_intron_reads_tmp_bam), shell=True)
+
+    gene_reads_bam = output_prefix + ".gene_reads.sorted.bam"
+    subprocess.check_call("samtools sort -o {} {}".format(gene_reads_bam, gene_reads_tmp_bam), shell=True)
     
     
     ## downsample the reads
@@ -215,7 +242,9 @@ def sift_bam(bam_file, max_coverage):
               " --keep_secondary " +
               " {} ".format(bam_file) 
               )
-    
+
+
+    logger.info(cmd)
     subprocess.check_call(cmd, shell=True)
 
     sifted_bam_file, count = re.subn(".bam$", ".sifted.bam", bam_file)

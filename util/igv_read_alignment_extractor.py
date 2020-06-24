@@ -66,7 +66,7 @@ def main():
         region_chr, region_coords = region.split(":")
         region_lend, region_rend = region_coords.split("-")
         
-        gene_reads = samfile.fetch(region_chr, int(region_lend), int(region_rend))
+        gene_reads = samfile.fetch(region_chr, int(float(region_lend)), int(float(region_rend)))
         for read in gene_reads:
             gene_reads_samfile_obj.write(read)
 

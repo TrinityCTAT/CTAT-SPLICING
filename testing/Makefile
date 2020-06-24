@@ -13,7 +13,7 @@ test_w_vis_hg19:
 
 
 clean:
-	rm -f ./ctat.introns ./ctat.cancer.introns ./ctat.Chimeric.out.junction.b38.introns.tmp
+	rm -rf ./ctat.*
 
 
 
