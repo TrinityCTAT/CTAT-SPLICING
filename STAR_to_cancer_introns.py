@@ -14,7 +14,7 @@ scriptdir=os.path.dirname(os.path.abspath(__file__))
 utildir=scriptdir + "/util"
 sys.path.append(utildir)
 import intron_occurrence_capture as ioc
-bindir=scriptdir + "/BIN"
+
 
 
 
@@ -207,7 +207,7 @@ def sift_bam(bam_file, max_coverage):
     if count != 1:
         raise RuntimeError("Error changing extension of .bam")
         
-    bamsifter_prog = os.path.join(bindir, "bamsifter")
+    bamsifter_prog = os.path.join(scriptdir, "bamsifter/bamsifter")
     cmd = str(bamsifter_prog +
               " -c {} ".format(max_coverage) +
               " -i 50 " +
