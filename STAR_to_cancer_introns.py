@@ -143,7 +143,8 @@ def main():
 
         igv_tracks_config_file = write_igv_config(output_prefix, ctat_genome_lib,
                                                   igv_introns_bed_file, bam_file,
-                                                  os.path.join(utildir, "misc/igv.tracks.json"))
+                                                  os.path.join(utildir, "misc/igv.tracks.json"),
+                                                  pipeliner)
         
                   
         # Create the IGV Reports
@@ -166,7 +167,7 @@ def main():
 
 
 
-def write_igv_config(output_prefix, ctat_genome_lib, igv_introns_bed_file, bam_file, template_json_file):
+def write_igv_config(output_prefix, ctat_genome_lib, igv_introns_bed_file, bam_file, template_json_file, pipeliner):
 
     json_template_text = subprocess.check_output("cat {}".format(template_json_file), shell=True).decode()
 
@@ -178,7 +179,7 @@ def write_igv_config(output_prefix, ctat_genome_lib, igv_introns_bed_file, bam_f
 
     gene_reads_bam_file, cancer_intron_reads_bam_file = get_gene_and_cancer_intron_reads_bam_files(output_prefix,
                                                                                                    igv_introns_bed_file,
-                                                                                                   bam_file)
+                                                                                                   bam_file, pipeliner)
         
     
     json_template_text = json_template_text.replace("__RNASEQ_GENE_ALIGNMENTS__", gene_reads_bam_file)
@@ -194,7 +195,7 @@ def write_igv_config(output_prefix, ctat_genome_lib, igv_introns_bed_file, bam_f
                                                     
 
 
-def get_gene_and_cancer_intron_reads_bam_files(output_prefix, igv_introns_bed_file, bam_file):
+def get_gene_and_cancer_intron_reads_bam_files(output_prefix, igv_introns_bed_file, bam_file, pipeliner):
 
     # extract the aligned reads
     
@@ -203,26 +204,29 @@ def get_gene_and_cancer_intron_reads_bam_files(output_prefix, igv_introns_bed_fi
               " --bam {} ".format(bam_file) +
               " --output_prefix {} ".format(output_prefix) )
 
-    subprocess.check_call(cmd, shell=True)
+    pipeliner.add_commands([Command(cmd, "reads_alignments_extracted.ok")])
 
     gene_reads_tmp_bam = output_prefix + ".gene_reads.bam"
     cancer_intron_reads_tmp_bam = output_prefix + ".cancer_intron_reads.bam"
 
     cancer_intron_reads_bam = output_prefix + ".cancer_intron_reads.sorted.bam"
-    subprocess.check_call("samtools sort -o {} {}".format(cancer_intron_reads_bam, cancer_intron_reads_tmp_bam), shell=True)
+
+    pipeliner.add_commands([Command("samtools sort -o {} {}".format(cancer_intron_reads_bam, cancer_intron_reads_tmp_bam),
+                                    "sort_cancer_intron_reads.ok")])
 
     gene_reads_bam = output_prefix + ".gene_reads.sorted.bam"
-    subprocess.check_call("samtools sort -o {} {}".format(gene_reads_bam, gene_reads_tmp_bam), shell=True)
+    pipeliner.add_commands([Command("samtools sort -o {} {}".format(gene_reads_bam, gene_reads_tmp_bam),
+                                    "sort_gene_reads.ok")])
     
     
     ## downsample the reads
     max_coverage = 50
-    gene_reads_bam_sifted = sift_bam(gene_reads_bam, max_coverage)
+    gene_reads_bam_sifted = sift_bam(gene_reads_bam, max_coverage, pipeliner)
 
 
     ## index final bams
-    index_bam(gene_reads_bam_sifted)
-    index_bam(cancer_intron_reads_bam)
+    index_bam(gene_reads_bam_sifted, pipeliner)
+    index_bam(cancer_intron_reads_bam, pipeliner)
     
 
     return(gene_reads_bam_sifted, cancer_intron_reads_bam)
@@ -230,7 +234,7 @@ def get_gene_and_cancer_intron_reads_bam_files(output_prefix, igv_introns_bed_fi
 
 
 
-def sift_bam(bam_file, max_coverage):
+def sift_bam(bam_file, max_coverage, pipeliner):
 
     sifted_bam_tmp_file, count = re.subn(".bam$", ".sifted.bam.tmp", bam_file)
     if count != 1:
@@ -246,25 +250,24 @@ def sift_bam(bam_file, max_coverage):
               )
 
 
-    logger.info(cmd)
-    subprocess.check_call(cmd, shell=True)
-
+    pipeliner.add_commands([Command(cmd, os.path.basename(sifted_bam_tmp_file) + ".ok")])
+    
     sifted_bam_file, count = re.subn(".bam$", ".sifted.bam", bam_file)
     if count != 1:
         raise RuntimeError("Error changing extension of .bam")
 
-    subprocess.check_call("samtools sort -o {} {}".format(sifted_bam_file, sifted_bam_tmp_file), shell=True)
+    pipeliner.add_commands([Command("samtools sort -o {} {}".format(sifted_bam_file, sifted_bam_tmp_file),
+                                     os.path.basename(sifted_bam_tmp_file) + "sorted.ok")])
 
-    os.remove(sifted_bam_tmp_file)
-    
     return sifted_bam_file
 
 
-def index_bam(bam_file):
+def index_bam(bam_file, pipeliner):
 
-    subprocess.check_call("samtools index {} ".format(bam_file), shell=True)
+    pipeliner.add_commands([Command("samtools index {} ".format(bam_file),
+                                    os.path.basename(bam_file) + ".indexed.ok")])
     
-
+    
 
 
 if __name__=='__main__':
