@@ -69,9 +69,9 @@ class BEDfile:
         gene_spans = os.path.join(self.genome_lib_dir, "ref_annot.gtf.gene_spans")
         gene_spans_df = pd.read_table(gene_spans, header = None)
 
-        split_gene = dt['genes'].str.split("^",n = 1, expand = True) 
-
-        viewport = get_viewport_ranges(dt, gene_spans_df) 
+        viewport = list()
+        gene_text = list()
+        get_viewport_ranges(dt, gene_spans_df, viewport, gene_text) 
         
         #~~~~~~~~~~~~~~~~~~~~~
         # Make the name column for the bed file 
@@ -79,10 +79,10 @@ class BEDfile:
         #~~~~~~~~~~~~~~~~~~~~~
         dt['uniq_mapped_str']  = 'uniquely_mapped=' + dt['uniq_mapped'].astype(str)
         dt['multi_mapped_str'] = 'multi_mapped=' + dt['multi_mapped'].astype(str)
-        dt['gene']             = 'gene=' + split_gene[0].astype(str)
+        dt['gene']             = ['gene=' + gene for gene in gene_text]
         
         
-        dt['viewport'] = viewport.values
+        dt['viewport'] = viewport
         
         # concatenate to make name column
         name = dt['uniq_mapped_str'] + ";" + dt['multi_mapped_str'] + ";" + dt['gene']
@@ -161,7 +161,7 @@ class BEDfile:
         ofh.close()
                     
     
-def get_viewport_ranges(dt, gene_spans_df):
+def get_viewport_ranges(dt, gene_spans_df, viewport_list, gene_text_list):
 
     dt_genes = dt['genes']
 
@@ -169,9 +169,16 @@ def get_viewport_ranges(dt, gene_spans_df):
 
     def construct_viewport(genes):
 
+        gene_syms = list()
+
         if genes in gene_list_to_viewport_memoize:
             ## shortcut in case weve already processed this gene list
-            return gene_list_to_viewport_memoize[genes]
+
+            viewport, gene_text = gene_list_to_viewport_memoize[genes]
+            viewport_list.append(viewport)
+            gene_text_list.append(gene_text)
+
+            return
         
         lend_range = list()
         rend_range = list()
@@ -181,6 +188,9 @@ def get_viewport_ranges(dt, gene_spans_df):
         
         for gene in genelist:
             (sym, ensg) = gene.split("^")
+
+            if sym not in gene_syms:
+                gene_syms.append(sym)
     
             # look up coordinates based on ensg id
             gene_coord_info = gene_spans_df[ gene_spans_df[0] == ensg ]
@@ -203,15 +213,17 @@ def get_viewport_ranges(dt, gene_spans_df):
         max_rend = rend_range[len(rend_range)-1]
 
         viewport_str = "{}:{}-{}".format(chromosome, min_lend, max_rend)
-
-        gene_list_to_viewport_memoize[genes] = viewport_str
-        
-        return viewport_str
-
-
-    viewport = dt_genes.apply(lambda x: construct_viewport(x))
+        gene_text = " ".join(gene_syms)
     
-    return viewport
+        gene_list_to_viewport_memoize[genes] = (viewport_str, gene_text)
+                
+        viewport_list.append(viewport_str)
+        gene_text_list.append(gene_text)
+
+
+    dt_genes.apply(lambda x: construct_viewport(x))
+    
+    return
 
                     
 def main():

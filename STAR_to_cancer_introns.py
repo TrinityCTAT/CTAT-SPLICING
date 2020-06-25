@@ -35,7 +35,8 @@ def main():
     
     parser.add_argument("--vis", action='store_true', default=False, help="Generate igv html ctat splicing visualization (requires --bam_file to be set)")
     parser.add_argument("--bam_file", dest="bam_file", type=str, required=False, default=None, help="STAR generated BAM file")
-        
+    parser.add_argument("--sample_name", dest='vis_sample_name', type=str, required=False, default="", help="sample name for vis title")
+    
     args = parser.parse_args()
 
     ctat_genome_lib = args.ctat_genome_lib
@@ -49,8 +50,9 @@ def main():
     bam_file = args.bam_file
     VIS_flag = args.vis
     min_total_reads = args.min_total_reads
-    
+    vis_sample_name = args.vis_sample_name
 
+    
     if VIS_flag and not bam_file:
         raise RuntimeError("Error, if --vis, must specify --bam_file ")
     
@@ -151,7 +153,7 @@ def main():
                   " --output {}.ctat-splicing.igv.html ".format(output_prefix) +
                   " --track-config {} ".format(igv_tracks_config_file) +
                   " --info-columns gene variant_name uniquely_mapped multi_mapped TCGA GTEx " +
-                  " --title 'CTAT_Splicing: my sample name' ")
+                  " --title 'CTAT_Splicing: {}' ".format(vis_sample_name))
         
         pipeliner.add_commands([Command(cmd, "igv_create_html.ok")])
         pipeliner.run()
