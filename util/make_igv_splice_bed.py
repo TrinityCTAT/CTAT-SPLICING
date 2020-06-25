@@ -107,7 +107,7 @@ class BEDfile:
         i2 = cancer_local.index
         
         # ~ means not in
-        cancer_temp_df = bed_file.loc[i1[i1.isin(i2)]] 
+        cancer_temp_df = bed_file.loc[i2] 
         temp_df = pd.DataFrame()
 
         # convert NaN'ss into NA's
@@ -117,7 +117,7 @@ class BEDfile:
         cancer_dt['TCGA_sample_counts'] = cancer_dt['TCGA_sample_counts'].str.replace(",", ", ")
 
 
-        # Add the new columns into the temp dataframe 
+        # Add the new columns into the temp dataframe for updating  bed file.
         temp_df['NAME'] = cancer_temp_df["NAME"]
         temp_df['TCGA'] = list('TCGA=' + cancer_dt['TCGA_sample_counts'].astype(str))
         temp_df['GTEx'] = list('GTEx=' + cancer_dt['GTEx_sample_counts'].astype(str))
