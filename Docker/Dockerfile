@@ -44,3 +44,17 @@ COPY intron_counter.py $BIN/
 RUN pip install pysam
 
 
+RUN apt-get update && apt-get install -y git && apt-get clean
+
+WORKDIR $SRC
+
+ENV CO="8f188003c7f8f38090a416122ed4794427bbaa89"
+RUN git clone https://github.com/NCIP/CTAT-SPLICING.git && \
+  cd CTAT-SPLICING && \
+  git checkout $CO && \
+  git submodule init && git submodule update && \
+  git submodule foreach --recursive git submodule init && \
+  git submodule foreach --recursive git submodule update && \
+  make
+
+
