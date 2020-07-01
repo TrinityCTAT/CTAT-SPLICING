@@ -1,3 +1,6 @@
 [submodule "bamsifter"]
 	path = bamsifter
 	url = https://github.com/trinityrnaseq/bamsifter.git
+[submodule "CTAT-SPLICING.wiki"]
+	path = CTAT-SPLICING.wiki
+	url = https://github.com/NCIP/CTAT-SPLICING.wiki.git
