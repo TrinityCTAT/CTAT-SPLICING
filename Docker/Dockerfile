@@ -20,7 +20,7 @@ RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
 
 
 
-RUN pip install igv-reports requests 
+RUN pip install igv-reports==1.0.1 requests 
 
 
 
@@ -42,4 +42,5 @@ RUN SAMTOOLS_URL="https://github.com/samtools/samtools/releases/download/${SAMTO
 COPY intron_counter.py $BIN/
 
 RUN pip install pysam
+
 
