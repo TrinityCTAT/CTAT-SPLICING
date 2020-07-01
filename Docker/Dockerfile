@@ -22,6 +22,8 @@ RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
 
 RUN pip install igv-reports==1.0.1 requests pysam pandas
 
+RUN curl -L https://cpanmin.us | perl - App::cpanminus
+RUN cpanm install URI::Escape
 
 
 ENV SRC /usr/local/src
@@ -51,4 +53,5 @@ RUN git clone https://github.com/NCIP/CTAT-SPLICING.git && \
   git submodule foreach --recursive git submodule init && \
   git submodule foreach --recursive git submodule update && \
   make
+
 
