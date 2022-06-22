@@ -4,9 +4,9 @@ import sys, os, re
 import argparse
 import subprocess
 import logging
+import pandas as pd
 
-
-VERSION = "0.0.1"
+VERSION = "0.0.2"
 
 
 logging.basicConfig(
@@ -111,6 +111,15 @@ def main():
     min_total_reads = args.min_total_reads
     vis_sample_name = args.vis_sample_name
 
+
+    # check for splicing info installation in ctat genome lib:
+    splicing_db = os.path.join(ctat_genome_lib, "cancer_splicing_lib/cancer_splicing.idx")
+    if not os.path.exists(splicing_db):
+        logger.error(f"Splicing database doesn't appear to be installed in the ctat genome lib. Cannot locate: {splicing_db}\nBe sure to follow the ctat splicing setup instructions")
+        sys.exit(1)
+    
+
+    
     if VIS_flag and not bam_file:
         raise RuntimeError("Error, if --vis, must specify --bam_file ")
 
@@ -130,6 +139,7 @@ def main():
     introns_output_file = output_prefix + ".introns"
     introns_output_file_chckpt = os.path.join(chckpts_dir, "introns.ok")
 
+    
     if not os.path.exists(introns_output_file_chckpt):
 
         targets_list_file = os.path.join(ctat_genome_lib, "ref_annot.gtf.mini.sortu")
@@ -209,6 +219,14 @@ def main():
 
     pipeliner.run()
 
+    cancer_introns = pd.read_csv(cancer_introns_file, sep="\t")
+    num_cancer_introns = len(cancer_introns)
+    logger.info(f"-found {num_cancer_introns} cancer introns") 
+    if num_cancer_introns == 0:
+        # nothing more to do here.
+        sys.exit(0)
+    
+    
     if VIS_flag:
 
         # generate the intron/junctions bed needed by igv

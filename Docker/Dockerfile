@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y gcc g++ perl python3 automake make \
 # make python3 be the default python
 RUN ln -sf /usr/bin/python3 /usr/bin/python
 
-RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
+RUN curl https://bootstrap.pypa.io/pip/3.6/get-pip.py -o get-pip.py && \
   python get-pip.py
 
 
@@ -45,7 +45,8 @@ COPY intron_counter.py $BIN/
 
 WORKDIR $SRC
 
-ENV CO="480c4ef746c9eec6a1c72cfd81af1ade701768cb"
+ENV CTAT_SPLICING_VERSION=0.0.2
+ENV CO=c3e18ca1f0d61f6e9a93ab2c68731d93ac1c0b6d
 RUN git clone https://github.com/NCIP/CTAT-SPLICING.git && \
   cd CTAT-SPLICING && \
   git checkout $CO && \

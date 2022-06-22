@@ -1,8 +1,13 @@
 
+all: test_b38 test_b38_null test_w_vis_b38
+
 
 test_b38:
 	../STAR_to_cancer_introns.py  --SJ_tab_file SJ.out.tab.b38 --chimJ_file Chimeric.out.junction.b38 --output_prefix ctat --ctat_genome_lib ${CTAT_GENOME_LIB} 
 
+
+test_b38_null:
+	../STAR_to_cancer_introns.py  --SJ_tab_file SJ.out.tab.b38.null --chimJ_file Chimeric.out.junction.b38.null --output_prefix ctat.null --ctat_genome_lib ${CTAT_GENOME_LIB} 
 
 test_w_vis_b38:
 	../STAR_to_cancer_introns.py  --SJ_tab_file SJ.out.tab.b38 --chimJ_file Chimeric.out.junction.b38 --output_prefix ctat --ctat_genome_lib ${CTAT_GENOME_LIB} --vis --bam alignments.b38.sorted.bam
@@ -13,7 +18,7 @@ test_w_vis_hg19:
 
 
 clean:
-	rm -rf ./ctat.*
+	rm -rf ./ctat.* ./singularity* ./docker*
 
 
 
