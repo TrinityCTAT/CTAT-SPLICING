@@ -100,7 +100,7 @@ def main():
 
     ctat_genome_lib = args.ctat_genome_lib
 
-    if not os.path.exists(ctat_genome_lib):
+    if ctat_genome_lib is None or not os.path.exists(ctat_genome_lib):
         raise RuntimeError("Error, must set --ctat_genome_lib ")
 
     SJ_tab_file = args.SJ_tab_file
