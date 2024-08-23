@@ -50,10 +50,11 @@ def main():
 
     
     genome_fasta_filename = os.path.join(genome_lib_dir, "ref_genome.fa")
-    gene_spans_file = os.path.join(genome_lib_dir, "ref_annot.gtf.gene_spans")
-    intron_db_file = os.path.join(genome_lib_dir, "ctat_splicing_lib/known_intron_annotations.tsv.gz")
     
-    gene_itree = get_gene_itree(gene_spans_file)
+    exon_coords_file = os.path.join(genome_lib_dir, "ref_annot.gtf.mini.sortu")
+    intron_db_file = os.path.join(genome_lib_dir, "ctat_splicing_lib/known_intron_annotations.tsv.gz")
+
+    exon_itree = get_exon_itree(exon_coords_file)
 
     intron_db = get_intron_db(intron_db_file)
     
@@ -99,15 +100,14 @@ def main():
 
             splice_flag = "OK" if splice_tok in OK_SPLICES else "NON"
 
-            # get overlapping genes
-            overlapping_genes = []
-            for overlapping_gene in gene_itree[lend:rend]:
-                overlapping_genes.append(overlapping_gene.data)
-
-            if len(overlapping_genes) == 0:
-                overlapping_genes = ["Intergenic"]
-            
-            print("\t".join([intron_key, splice_tok, str(count), splice_flag, cryptic_or_known, ";".join(overlapping_genes)]))
+            gene_annots = get_overlapping_gene(chrom, lend, rend, exon_itree)
+                        
+            print("\t".join([intron_key,
+                             splice_tok,
+                             str(count),
+                             splice_flag,
+                             ";".join(list(gene_annots)),
+                             cryptic_or_known ] ) )
             
 
 
@@ -146,7 +146,7 @@ def capture_introns_from_file(introns_file, intron_counter):
             chrom = m.group(1)
             coords = m.group(2)
             token = f"{chrom}:{coords}"
-            print("Token: {}".format(token))
+            #print("Token: {}".format(token))
             intron_counter[chrom][token] += 1
 
     return
@@ -167,26 +167,52 @@ def get_intron_db(known_introns_file):
             intron_info = intron_info.rstrip()
             intron_vals = intron_info.split("\t")
             intron = intron_vals[0]
-            intron_info = "\t".join(intron_vals[1:])
+            intron_info = "\t".join(intron_vals[2:])
             intron_db[intron] = intron_info
     
     return intron_db
 
 
-def get_gene_itree(gene_spans_file):
+def get_exon_itree(exon_coords_file):
 
-    gene_tree =  itree.IntervalTree()
-
-    with open(gene_spans_file) as fh:
+    exon_itree = defaultdict(lambda: itree.IntervalTree())
+    
+    with open(exon_coords_file, "rt") as fh:
         for line in fh:
             line = line.rstrip()
             vals = line.split("\t")
-            ensg_id, chr_val, lend, rend, strand, gene_sym, gene_type = vals
-            lend = int(lend)
-            rend = int(rend)
-            gene_tree[lend:rend+1] = f"{gene_sym}^{ensg_id}"
+            gene_info = vals[8].split()[1].replace("\"", "")
+            chrom = vals[0]
+            lend = int(vals[3])
+            rend = int(vals[4])
 
-    return gene_tree
+            exon_itree[chrom][lend:rend+1] = gene_info
+
+    return exon_itree
+            
+
+
+
+def get_overlapping_gene(chrom, lend, rend, exon_itree):
+
+    ## try ranges of coordinate extensions to find nearest overlapping exon.
+
+    # get overlapping genes
+    overlapping_genes = set()
+    
+    ranges = (0, 100, 500, 1000, 5000, 10000)
+
+    for i_range in ranges:
+        for overlapping_gene in exon_itree[chrom][ (lend - i_range) : (rend + i_range)]:
+            overlapping_genes.add(overlapping_gene.data)        
+    
+        if len(overlapping_genes) > 0:
+            return overlapping_genes
+
+    # no overlaps found
+    overlapping_genes.add("NA")
+    return overlapping_genes
+
 
 
 if __name__=='__main__':
