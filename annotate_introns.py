@@ -73,6 +73,9 @@ def main():
 
     ######
     logger.info("reporting intron annotations")
+
+    # print header
+    print("\t".join(["intron","splice_pair", "count", "gene", "TCGA|Cryptic", "GTEx"]))
     
     for chrom, chrom_icounter in intron_counter.items():
 
