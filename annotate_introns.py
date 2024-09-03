@@ -63,7 +63,7 @@ def main():
     intron_counter = defaultdict( lambda: defaultdict(int) )
     
     if (bam_file is not None):
-        capture_introns_from_bam_file(bam_file, intron_counter)
+        evaluate_introns_from_bam_file(bam_file, intron_counter)
 
     elif (introns_file):
         capture_introns_from_file(introns_file, intron_counter)
@@ -114,7 +114,7 @@ def main():
             
 
 
-def evalute_introns_from_bam_file(bam_file, intron_counter):
+def evaluate_introns_from_bam_file(bam_filename, intron_counter):
 
     logger.info("-searching bam file")
 
@@ -139,6 +139,11 @@ def evalute_introns_from_bam_file(bam_file, intron_counter):
             intron_counter[chrom][intron_key] += 1
                 
 
+    return
+
+
+
+            
 def capture_introns_from_file(introns_file, intron_counter):
 
     with open(introns_file, "rt") as fh:
