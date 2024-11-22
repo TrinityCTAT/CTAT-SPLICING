@@ -6,7 +6,7 @@ import subprocess
 import logging
 import pandas as pd
 
-VERSION = "0.0.2"
+VERSION = "0.0.3"
 
 
 logging.basicConfig(

@@ -45,7 +45,7 @@ COPY intron_counter.py $BIN/
 
 WORKDIR $SRC
 
-ENV CTAT_SPLICING_VERSION=0.0.2
+ENV CTAT_SPLICING_VERSION=0.0.3
 ENV CO=c3e18ca1f0d61f6e9a93ab2c68731d93ac1c0b6d
 RUN git clone https://github.com/NCIP/CTAT-SPLICING.git && \
   cd CTAT-SPLICING && \
